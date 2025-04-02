@@ -562,6 +562,21 @@ files = [
 ]
 
 [[package]]
+name = "python-dotenv"
+version = "1.1.0"
+description = "Read key-value pairs from a .env file and set them as environment variables"
+optional = false
+python-versions = ">=3.9"
+groups = ["main"]
+files = [
+    {file = "python_dotenv-1.1.0-py3-none-any.whl", hash = "sha256:d7c01d9e2293916c18baf562d95698754b0dbbb5e74d457c45d4f6561fb9d55d"},
+    {file = "python_dotenv-1.1.0.tar.gz", hash = "sha256:41f90bc6f5f177fb41f53e87666db362025010eb28f60a01c9143bfa33a2b2d5"},
+]
+
+[package.extras]
+cli = ["click (>=5.0)"]
+
+[[package]]
 name = "typing-extensions"
 version = "4.13.0"
 description = "Backported and Experimental Type Hints for Python 3.8+"
@@ -674,4 +689,4 @@ propcache = ">=0.2.0"
 [metadata]
 lock-version = "2.1"
 python-versions = ">=3.10"
-content-hash = "779703db7f42b5f0a5fb3389b793a2b3e212d1ec63c4e85f61126624c915962e"
+content-hash = "4530b0ad687765ce0da97ccacdfb777b5d83856184fc06d9273b21cd54e0f2bc"
