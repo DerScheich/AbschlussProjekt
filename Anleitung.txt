@@ -1,13 +1,23 @@
-/ping: Bei Eingabe antwortet der Bot mit „pong“.
+/ape <username>
+Aktiviert den Imitationsmodus: Der Bot gibt Nachrichten des Benutzers in abwechselnder Groß-/Kleinschreibung aus. Optional mit laut als TTS.
 
-/ape <username>: Aktiviert den Mimic-Modus. Der Bot antwortet automatisch auf Nachrichten des Benutzers mit abwechselnder Groß- und Kleinschreibung (beginnend mit Kleinbuchstaben).
+/noape <username>
+Deaktiviert den Imitationsmodus.
 
-/noape <username>: Deaktiviert den Mimic-Modus für den angegebenen Benutzer.
+/insult <username>
+Aktiviert den Insult-Modus: Der Bot antwortet immer mit „du hurensohn“.
 
-/mock <username>: Aktiviert den Mock-Modus. Der Bot antwortet auf Nachrichten des Benutzers immer mit „du hurensohn“.
+/noinsult <username>
+Deaktiviert den Insult-Modus.
 
-/nomock <username>: Deaktiviert den Mock-Modus.
+/mock <username>
+Aktiviert den kombinierten Modus: Der Bot gibt die Nachricht des Benutzers komplett in lowercase aus, vorangestellt mit „selber“ und ergänzt mit „du hurensohn“. Optional mit laut als TTS.
 
-/mockape <username>: Aktiviert den Mockape-Modus. Der Bot antwortet in komplett lowercase und ergänzt die Nachricht mit „selber <text in lowercase> du hurensohn“.
+/nomock <username>
+Deaktiviert den kombinierten Modus.
 
-/nomockape <username>: Deaktiviert den Mockape-Modus.
+/<befehl> laut <username>
+Ließt die Antwort des Bots vor.
+
+ping
+Testbefehl: Antwortet mit „pong“.

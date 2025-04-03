@@ -18,10 +18,10 @@ def ape_transform(text: str) -> str:
 class MyClient(discord.Client):
     def __init__(self, *args, **kwargs):
         super().__init__(*args, **kwargs)
-        # Mengen für die verschiedenen Modi
-        self.mimic_users = set()
-        self.mock_users = set()
-        self.mockape_users = set()
+        # Dictionaries für Imitations- und Kombi-Modus, die auch einen TTS-Flag speichern: {username: tts_flag}
+        self.mimic_users = {}    # /ape, Imitationsmodus
+        self.insult_users = set()  # /insult, immer "du hurensohn"
+        self.mock_users = {}  # /mock, kombinierter Modus
 
     async def on_ready(self):
         print('Logged on as', self.user)
@@ -31,66 +31,70 @@ class MyClient(discord.Client):
         if message.author == self.user:
             return
 
-        # Aktivierung/Deaktivierung Mimic-Modus
-        if message.content.startswith('/ape '):
-            parts = message.content.split(maxsplit=1)
-            if len(parts) >= 2:
-                target_username = parts[1].strip()
-                self.mimic_users.add(target_username)
-            return
+        content = message.content
+        tokens = content.split()
+        if tokens:
+            # /ape [laut] <username>
+            if tokens[0] == '/ape':
+                if len(tokens) >= 3 and tokens[1].lower() == 'laut':
+                    username = tokens[2]
+                    self.mimic_users[username] = True
+                elif len(tokens) >= 2:
+                    username = tokens[1]
+                    self.mimic_users[username] = False
+                return
 
-        if message.content.startswith('/noape '):
-            parts = message.content.split(maxsplit=1)
-            if len(parts) >= 2:
-                target_username = parts[1].strip()
-                self.mimic_users.discard(target_username)
-            return
+            # /noape <username>
+            if tokens[0] == '/noape' and len(tokens) >= 2:
+                username = tokens[1]
+                self.mimic_users.pop(username, None)
+                return
 
-        # Aktivierung/Deaktivierung Mock-Modus
-        if message.content.startswith('/mock '):
-            parts = message.content.split(maxsplit=1)
-            if len(parts) >= 2:
-                target_username = parts[1].strip()
-                self.mock_users.add(target_username)
-            return
+            # /insult <username> – immer "du hurensohn"
+            if tokens[0] == '/insult' and len(tokens) >= 2:
+                username = tokens[1]
+                self.insult_users.add(username)
+                return
 
-        if message.content.startswith('/nomock '):
-            parts = message.content.split(maxsplit=1)
-            if len(parts) >= 2:
-                target_username = parts[1].strip()
-                self.mock_users.discard(target_username)
-            return
+            # /noinsult <username>
+            if tokens[0] == '/noinsult' and len(tokens) >= 2:
+                username = tokens[1]
+                self.insult_users.discard(username)
+                return
 
-        # Aktivierung/Deaktivierung Mockape-Modus
-        if message.content.startswith('/mockape '):
-            parts = message.content.split(maxsplit=1)
-            if len(parts) >= 2:
-                target_username = parts[1].strip()
-                self.mockape_users.add(target_username)
-            return
+            # /mock [laut] <username> – kombiniert lowercase-Nachricht mit "selber ... du hurensohn"
+            if tokens[0] == '/mock':
+                if len(tokens) >= 3 and tokens[1].lower() == 'laut':
+                    username = tokens[2]
+                    self.mock_users[username] = True
+                elif len(tokens) >= 2:
+                    username = tokens[1]
+                    self.mock_users[username] = False
+                return
 
-        if message.content.startswith('/nomockape '):
-            parts = message.content.split(maxsplit=1)
-            if len(parts) >= 2:
-                target_username = parts[1].strip()
-                self.mockape_users.discard(target_username)
-            return
+            # /nomock <username>
+            if tokens[0] == '/nomock' and len(tokens) >= 2:
+                username = tokens[1]
+                self.mock_users.pop(username, None)
+                return
 
-        # Antwortlogik:
-        # 1. Mock-Modus: "du hurensohn"
-        if message.author.name in self.mock_users:
+        # Antwortlogik: Prioritäten
+        # 1. Insult-Modus: Antwortet immer mit "du hurensohn"
+        if message.author.name in self.insult_users:
             await message.channel.send("du hurensohn")
-        # 2. Mockape-Modus: "selber <text in lowercase> du hurensohn"
-        elif message.author.name in self.mockape_users:
+        # 2. Kombinierter Modus (/mock): "selber <text in lowercase> du hurensohn"
+        elif message.author.name in self.mock_users:
             response = f"selber {message.content.lower()} du hurensohn"
-            await message.channel.send(response)
-        # 3. Mimic-Modus: abwechselnd upper-/lowercase
+            tts_flag = self.mock_users[message.author.name]
+            await message.channel.send(response, tts=tts_flag)
+        # 3. Imitationsmodus (/ape): Abwechselnd upper-/lowercase
         elif message.author.name in self.mimic_users:
-            transformed_text = ape_transform(message.content)
-            await message.channel.send(transformed_text)
+            transformed = ape_transform(message.content)
+            tts_flag = self.mimic_users[message.author.name]
+            await message.channel.send(transformed, tts=tts_flag)
 
         # Testbefehl
-        if message.content == 'ping':
+        if content == 'ping':
             await message.channel.send('pong')
 
 intents = discord.Intents.default()
