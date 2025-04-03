@@ -9,10 +9,7 @@ def ape_transform(text: str) -> str:
     use_upper = False  # Beginne mit Kleinbuchstaben
     for char in text:
         if char.isalpha():
-            if use_upper:
-                new_text += char.upper()
-            else:
-                new_text += char.lower()
+            new_text += char.upper() if use_upper else char.lower()
             use_upper = not use_upper
         else:
             new_text += char
@@ -34,86 +31,65 @@ class MyClient(discord.Client):
         if message.author == self.user:
             return
 
-        # Befehle zum Aktivieren/Deaktivieren des Mimic-Modus
+        # Aktivierung/Deaktivierung Mimic-Modus
         if message.content.startswith('/ape '):
             parts = message.content.split(maxsplit=1)
-            if len(parts) < 2:
-                return  # Kein Benutzer angegeben
-            target_username = parts[1].strip()
-            self.mimic_users.add(target_username)
-            await message.channel.send(f"Automatisches Nachäffen von **{target_username}** wurde aktiviert.")
+            if len(parts) >= 2:
+                target_username = parts[1].strip()
+                self.mimic_users.add(target_username)
             return
 
         if message.content.startswith('/noape '):
             parts = message.content.split(maxsplit=1)
-            if len(parts) < 2:
-                return  # Kein Benutzer angegeben
-            target_username = parts[1].strip()
-            if target_username in self.mimic_users:
-                self.mimic_users.remove(target_username)
-                await message.channel.send(f"Automatisches Nachäffen von **{target_username}** wurde deaktiviert.")
-            else:
-                await message.channel.send(f"**{target_username}** wird nicht nachgeahmt.")
+            if len(parts) >= 2:
+                target_username = parts[1].strip()
+                self.mimic_users.discard(target_username)
             return
 
-        # Befehle zum Aktivieren/Deaktivieren des Mock-Modus
+        # Aktivierung/Deaktivierung Mock-Modus
         if message.content.startswith('/mock '):
             parts = message.content.split(maxsplit=1)
-            if len(parts) < 2:
-                return  # Kein Benutzer angegeben
-            target_username = parts[1].strip()
-            self.mock_users.add(target_username)
-            await message.channel.send(f"Mocking von **{target_username}** wurde aktiviert.")
+            if len(parts) >= 2:
+                target_username = parts[1].strip()
+                self.mock_users.add(target_username)
             return
 
         if message.content.startswith('/nomock '):
             parts = message.content.split(maxsplit=1)
-            if len(parts) < 2:
-                return  # Kein Benutzer angegeben
-            target_username = parts[1].strip()
-            if target_username in self.mock_users:
-                self.mock_users.remove(target_username)
-                await message.channel.send(f"Mocking von **{target_username}** wurde deaktiviert.")
-            else:
-                await message.channel.send(f"**{target_username}** wird nicht gemockt.")
+            if len(parts) >= 2:
+                target_username = parts[1].strip()
+                self.mock_users.discard(target_username)
             return
 
-        # Befehle zum Aktivieren/Deaktivieren des Mockape-Modus
+        # Aktivierung/Deaktivierung Mockape-Modus
         if message.content.startswith('/mockape '):
             parts = message.content.split(maxsplit=1)
-            if len(parts) < 2:
-                return  # Kein Benutzer angegeben
-            target_username = parts[1].strip()
-            self.mockape_users.add(target_username)
-            await message.channel.send(f"Mockape von **{target_username}** wurde aktiviert.")
+            if len(parts) >= 2:
+                target_username = parts[1].strip()
+                self.mockape_users.add(target_username)
             return
 
         if message.content.startswith('/nomockape '):
             parts = message.content.split(maxsplit=1)
-            if len(parts) < 2:
-                return  # Kein Benutzer angegeben
-            target_username = parts[1].strip()
-            if target_username in self.mockape_users:
-                self.mockape_users.remove(target_username)
-                await message.channel.send(f"Mockape von **{target_username}** wurde deaktiviert.")
-            else:
-                await message.channel.send(f"**{target_username}** wird nicht im Mockape-Modus bedient.")
+            if len(parts) >= 2:
+                target_username = parts[1].strip()
+                self.mockape_users.discard(target_username)
             return
 
-        # Bearbeitung von Nachrichten – Prioritäten:
-        # 1. Mock-Modus: antwortet mit "du hurensohn"
+        # Antwortlogik:
+        # 1. Mock-Modus: "du hurensohn"
         if message.author.name in self.mock_users:
             await message.channel.send("du hurensohn")
-        # 2. Mockape-Modus: antwortet komplett in lowercase als: "selber <text> du hurensohn"
+        # 2. Mockape-Modus: "selber <text in lowercase> du hurensohn"
         elif message.author.name in self.mockape_users:
             response = f"selber {message.content.lower()} du hurensohn"
             await message.channel.send(response)
-        # 3. Mimic-Modus: antwortet mit abwechselndem upper-/lowercase
+        # 3. Mimic-Modus: abwechselnd upper-/lowercase
         elif message.author.name in self.mimic_users:
             transformed_text = ape_transform(message.content)
             await message.channel.send(transformed_text)
 
-        # Optional: weiterer Befehl
+        # Testbefehl
         if message.content == 'ping':
             await message.channel.send('pong')
 
