@@ -8,12 +8,16 @@ import io
 from discord.ext import commands
 from dotenv import load_dotenv
 from typing import Literal, Optional
-
+from openai import OpenAI
 from scipy.io import wavfile
 from scipy import signal
 from pydub import AudioSegment  # Für MP3-Unterstützung
 
 load_dotenv()
+
+client = OpenAI(
+    api_key = os.getenv("OPENAI_API_KEY"),
+)
 
 ##########################################################
 # Klasse für Audioeffekte & Laden der Dateien
@@ -395,8 +399,7 @@ async def on_message(message: discord.Message):
     else:
         if bot.chat_mode:
             trigger = False
-            content_lower = message.content.lower()
-            if "dr. mehmer" in content_lower or message.content.strip().endswith("?"):
+            if bot.chat_mode and (bot.user in message.mentions):
                 trigger = True
             if trigger:
                 channel_id = message.channel.id
@@ -406,20 +409,47 @@ async def on_message(message: discord.Message):
                 if len(bot.chat_history[channel_id]) > MAX_HISTORY:
                     bot.chat_history[channel_id] = bot.chat_history[channel_id][-MAX_HISTORY:]
 
-                if bot.maggus_mode:
-                    maggus_phrases = [
-                        "Ey, Alter, reiß dich zusammen und pump mal richtig – jetzt wird's fett!",
-                        "Bruder, keine halben Sachen – du musst die Hanteln knallen lassen!",
-                        "Komm schon, zeig deine Muckis!"
-                    ]
-                    answer = random.choice(maggus_phrases)
-                else:
-                    answer = "Hier wäre eine Chat-Antwort – ChatGPT-Integration."
+                if client:
+                    # Wenn Maggus aktiv, nutze spezielle Prompt
+                    if bot.maggus_mode:
+                        instructions = (
+                            "Du bist Markus Rühl, ein renommierter deutscher Profi-Bodybuilder, "
+                            "bekannt für deine beeindruckende Muskelmasse und deinen unverwechselbaren Humor. "
+                            "In deinen Antworten verwendest du häufig Insider-Begriffe und Phrasen wie 'Bob Tschigerillo', 'Abbelschorle', 'Muss net schmegge, muss wirke' und 'Muss wirke'. "
+                            "Deine Ausdrucksweise ist direkt, humorvoll und gelegentlich mit hessischem Dialekt durchsetzt. "
+                            "Du betonst die Bedeutung von harter Arbeit, Disziplin und einer pragmatischen Herangehensweise an Training und Ernährung. "
+                            "Dein Humor ist oft selbstironisch, und du nimmst dich selbst nicht zu ernst. Deine Antworten sollen die Leser unterhalten und gleichzeitig Einblicke in die Welt des professionellen Bodybuildings geben."
+                            "Wenn irgendwas mit Bob Chigerillo kommt, bilde einen logischen Satz mit ausgebobt. Das Ausgebobbt-Meme mit Markus Rühl bezieht sich auf humorvolle Interaktionen zwischen dem deutschen Profi-Bodybuilder "
+                            "Markus Rühl und Bob Cicherillo, einem bekannten Bodybuilding-Kommentator. In diesen Videos verwendet Rühl den Begriff ausgebobbt in Anspielung auf Cicherillo, welcher bei einem Wettkampf gegen ihn verloren hat. Es hatte sich also ausgebobt für den Bob."
+                            "Spreche den Gesprächspartner etwas schroff an. "
+                            "Beispiele: "
+                            "1) Ey, Alter, reiß dich zusammen und pump mal richtig – jetzt wird's fett! "
+                            "2) Bruder, keine halben Sachen – du musst die Hanteln knallen lassen! "
+                            "3) Komm schon, zeig deine Muckis!"
+                        )
+                    else:
+                        instructions = "Du bist ein lockerer Discord-Bot. Antworte kurz."
 
+                    # GPT-Aufruf
+                    try:
+                        response = client.responses.create(
+                            model="gpt-4o-mini",
+                            instructions=instructions,
+                            max_output_tokens=150,
+                            input=message.content,
+                        )
+                        answer = response.output_text.strip()
+                    except Exception as e:
+                        answer = f"Fehler beim Abrufen der Chat-Antwort: {e}"
+                else:
+                    answer = "GPT nicht verfügbar."
+
+                    # Sende Antwort im Chat
                 await message.channel.send(answer)
                 bot.chat_history[channel_id].append({"role": "assistant", "content": answer})
 
-    await bot.process_commands(message)
+                # Stelle sicher, dass Discord noch alle Befehle verarbeitet
+            await bot.process_commands(message)
 
 ##########################################################
 # sync und Start
