@@ -2,17 +2,144 @@ import os
 import discord
 import random
 import asyncio
-from openai import OpenAI
+import numpy as np
+import io
+
 from discord.ext import commands
 from dotenv import load_dotenv
 from typing import Literal, Optional
 
+from scipy.io import wavfile
+from scipy import signal
+from pydub import AudioSegment  # Für MP3-Unterstützung
+
 load_dotenv()
 
-client_api = OpenAI(
-    api_key=os.getenv("OPENAI_API_KEY"),
-)
+##########################################################
+# Klasse für Audioeffekte & Laden der Dateien
+##########################################################
+class AudioEffects:
+    """
+    Alle Audiofunktionen liegen hier:
+    - load_audio_from_attachment
+    - refined_resample_audio
+    - refined_convolve_audio
+    - slow_audio
+    """
 
+    @staticmethod
+    async def load_audio_from_attachment(attachment: discord.Attachment) -> tuple[int, np.ndarray]:
+        """
+        Lädt das übergebene Attachment (WAV oder MP3) in den RAM,
+        decodiert es und gibt (sample_rate, samples) zurück.
+        """
+        file_bytes = await attachment.read()
+        name_lower = attachment.filename.lower()
+
+        if name_lower.endswith(".wav"):
+            with io.BytesIO(file_bytes) as f:
+                rate, data = wavfile.read(f)
+            return rate, data
+
+        elif name_lower.endswith(".mp3"):
+            audio_seg = AudioSegment.from_file(io.BytesIO(file_bytes), format="mp3")
+            samples = np.array(audio_seg.get_array_of_samples())
+            rate = audio_seg.frame_rate
+
+            # Mehrkanal?
+            if audio_seg.channels == 2:
+                samples = samples.reshape((-1, 2))
+            return rate, samples
+
+        else:
+            raise ValueError("Es sind nur .wav oder .mp3 erlaubt.")
+
+    @staticmethod
+    def refined_resample_audio(audio: np.ndarray, orig_rate: int, target_rate: int) -> np.ndarray:
+        """Resampling von Audiodaten, falls die Abtastraten unterschiedlich sind."""
+        if orig_rate == target_rate:
+            return audio
+        target_length = int(len(audio) * target_rate / orig_rate)
+        return signal.resample(audio, target_length)
+
+    @staticmethod
+    def refined_convolve_audio(x: np.ndarray, h: np.ndarray) -> np.ndarray:
+        """
+        Führt die Faltung durch und gibt ein normalisiertes Stereo-Signal zurück.
+        """
+        if x.ndim == 1:
+            x = np.expand_dims(x, axis=1)
+        if h.ndim == 1:
+            h = np.expand_dims(h, axis=1)
+
+        if x.shape[1] == 1 and h.shape[1] == 1:
+            y = signal.fftconvolve(x[:, 0], h[:, 0], mode="full")
+            y = np.column_stack((y, y))  # Stereo
+        elif x.shape[1] == 1 and h.shape[1] == 2:
+            left = signal.fftconvolve(x[:, 0], h[:, 0], mode="full")
+            right = signal.fftconvolve(x[:, 0], h[:, 1], mode="full")
+            y = np.column_stack((left, right))
+        elif x.shape[1] == 2 and h.shape[1] == 1:
+            left = signal.fftconvolve(x[:, 0], h[:, 0], mode="full")
+            right = signal.fftconvolve(x[:, 1], h[:, 0], mode="full")
+            y = np.column_stack((left, right))
+        else:
+            # x Stereo, h Stereo
+            left = signal.fftconvolve(x[:, 0], h[:, 0], mode="full")
+            right = signal.fftconvolve(x[:, 1], h[:, 1], mode="full")
+            y = np.column_stack((left, right))
+
+        max_val = np.max(np.abs(y))
+        if max_val > 0:
+            y /= max_val
+        return y
+
+    @staticmethod
+    def slow_audio(data: np.ndarray, slow_factor: float = 0.85) -> np.ndarray:
+        """
+        Verlangsamt das Audio per Resampling. standard: 85% speed -> 15% langsamer
+        """
+        new_len = int(len(data) / slow_factor)
+
+        if data.ndim == 1:
+            slowed = signal.resample(data, new_len)
+        else:
+            left = signal.resample(data[:, 0], new_len)
+            right = signal.resample(data[:, 1], new_len)
+            slowed = np.column_stack((left, right))
+
+        max_val = np.max(np.abs(slowed))
+        if max_val > 0:
+            slowed /= max_val
+
+        return slowed
+
+
+##########################################################
+# Bot / Setup
+##########################################################
+
+intents = discord.Intents.default()
+intents.message_content = True
+intents.members = True
+
+bot = commands.Bot(command_prefix="/", intents=intents)
+
+# Deine bisherigen Variablen und Modi
+bot.mimic_users = {}
+bot.mock_users = {}
+bot.chat_mode = False
+bot.maggus_mode = False
+bot.chat_history = {}
+
+MAX_HISTORY = 10
+
+# Instanz der AudioEffects-Klasse, die wir für alle Kommandos verwenden können
+audio_fx = AudioEffects()
+
+##########################################################
+# Hilfsfunktion ape_transform für on_message
+##########################################################
 def ape_transform(text: str) -> str:
     """Transformiert einen Text in abwechselnde Groß-/Kleinschreibung."""
     new_text = ""
@@ -25,52 +152,164 @@ def ape_transform(text: str) -> str:
             new_text += char
     return new_text
 
-def generate_chat_response(history: list) -> str:
-    """
-    Erzeugt eine ChatGPT-Antwort basierend auf dem übergebenen Gesprächsverlauf.
-    Systemprompt: Der Bot soll locker, umgangssprachlich und wie ein junges GenZ Discord-Mitglied antworten.
-    """
+##########################################################
+# 1) /slowed
+##########################################################
+@bot.tree.command(name="slowed", description="Verlangsame das Audio auf 85 % (Slowed-Only).")
+async def slowed(
+    interaction: discord.Interaction,
+    input_audio: discord.Attachment
+):
+    await interaction.response.defer(thinking=True)
+
     try:
-        response = client_api.responses.create(
-            model="gpt-4o-mini",
-            instructions=(
-                "Du bist ein junger, lockerer Discord-Nutzer. Du antwortest umgangssprachlich, ohne übertriebene Satzzeichen, "
-                "und beteiligst dich am Chat wie ein echtes Mitglied – authentisch und nicht übermäßig formell."
-            ),
-            max_output_tokens=300,
-            input="\n".join(f"{msg['role']}: {msg['content']}" for msg in history),
-        )
-        return response.output_text.strip()
+        rate_in, data_in = await audio_fx.load_audio_from_attachment(input_audio)
+    except ValueError as e:
+        await interaction.followup.send(f"Dateiformat-Fehler: {e}")
+        return
     except Exception as e:
-        return f"Fehler beim Abrufen der Antwort: {e}"
+        await interaction.followup.send(f"Fehler beim Einlesen der Datei: {e}")
+        return
 
-# Liste von Markus-Rühl inspirierten Sprüchen (fiktiv und humorvoll)
-maggus_phrases = [
-    "Ey, Alter, reiß dich zusammen und pump mal richtig – jetzt wird's fett!",
-    "Bruder, keine halben Sachen – du musst die Hanteln knallen lassen!",
-    "Komm schon, zeig deine Muckis! Hier geht’s nicht um Warm-up, sondern um richtiges Pitchen!",
-    "Das ist kein Training für Anfänger – hier wird richtig abgeräumt, mein Freund!",
-    "Ey, wenn du nicht mehr Power raushauen kannst, dann bist du hier fehl am Platz!"
-]
+    # Audio um 15% verlangsamen
+    slowed_data = audio_fx.slow_audio(data_in, slow_factor=0.85)
+    slowed_int16 = np.int16(slowed_data * 32767)
 
-# Aktivieren der benötigten Intents
-intents = discord.Intents.default()
-intents.message_content = True
-intents.members = True
+    # WAV erstellen + zurücksenden
+    buffer_out = io.BytesIO()
+    try:
+        wavfile.write(buffer_out, rate_in, slowed_int16)
+    except Exception as e:
+        await interaction.followup.send(f"Fehler beim Erzeugen der Ausgabedatei: {e}")
+        return
 
-# Erstelle den Bot (Prefix nur für klassische Befehle)
-bot = commands.Bot(command_prefix="/", intents=intents)
+    buffer_out.seek(0)
+    try:
+        await interaction.followup.send(
+            content="Hier ist dein verlangsames Audio (85 % Speed):",
+            file=discord.File(buffer_out, filename="slowed_result.wav")
+        )
+    except Exception as e:
+        await interaction.followup.send(f"Fehler beim Senden der Ergebnisdatei: {e}")
 
-# Speichere pro User die Modi:
-bot.mimic_users = {}   # {user_id: tts_flag} für /ape
-bot.mock_users = {}    # {user_id: tts_flag} für /mock
-bot.chat_mode = False  # Globaler Chat-Modus
-bot.maggus_mode = False  # Wenn aktiviert, antwortet der Bot im Markus-Rühl-Stil
-bot.chat_history = {}  # {channel_id: [ {"role": "user"|"assistant", "content": str}, ... ] }
 
-MAX_HISTORY = 10  # Maximale Anzahl an Nachrichten im Verlauf pro Channel
+##########################################################
+# 2) /slowed_reverb
+##########################################################
+@bot.tree.command(name="slowed_reverb", description="Slowed+Reverb: Audio ~15% langsamer & Hall-Effekt.")
+async def slowed_reverb(
+    interaction: discord.Interaction,
+    input_audio: discord.Attachment,
+    impulse_audio: discord.Attachment
+):
+    await interaction.response.defer(thinking=True)
 
-# /ape Slash-Befehl
+    try:
+        rate_x, x_data = await audio_fx.load_audio_from_attachment(input_audio)
+        rate_h, h_data = await audio_fx.load_audio_from_attachment(impulse_audio)
+    except ValueError as e:
+        await interaction.followup.send(f"Dateiformat-Fehler: {e}")
+        return
+    except Exception as e:
+        await interaction.followup.send(f"Fehler beim Einlesen der Dateien: {e}")
+        return
+
+    # Resample, falls nötig
+    if rate_x != rate_h:
+        try:
+            h_data = audio_fx.refined_resample_audio(h_data, rate_h, rate_x)
+            rate_h = rate_x
+        except Exception as e:
+            await interaction.followup.send(f"Fehler beim Resampling: {e}")
+            return
+
+    # Faltung
+    try:
+        y = audio_fx.refined_convolve_audio(x_data, h_data)
+    except Exception as e:
+        await interaction.followup.send(f"Fehler bei der Faltung: {e}")
+        return
+
+    # Audio verlangsamen
+    slowed = audio_fx.slow_audio(y, slow_factor=0.85)
+    slowed_int16 = np.int16(slowed * 32767)
+
+    # WAV zurücksenden
+    buffer_out = io.BytesIO()
+    try:
+        wavfile.write(buffer_out, rate_x, slowed_int16)
+    except Exception as e:
+        await interaction.followup.send(f"Fehler beim Erzeugen der Ausgabedatei: {e}")
+        return
+
+    buffer_out.seek(0)
+    try:
+        await interaction.followup.send(
+            content="Hier ist dein Slowed+Reverb-Audio:",
+            file=discord.File(buffer_out, filename="slowed_reverb_result.wav")
+        )
+    except Exception as e:
+        await interaction.followup.send(f"Fehler beim Senden der Ergebnisdatei: {e}")
+
+
+##########################################################
+# 3) /reverb
+##########################################################
+@bot.tree.command(name="reverb", description="Falte ein Audiosignal (WAV/MP3) mit einer Impulsantwort (WAV/MP3).")
+async def reverb(
+    interaction: discord.Interaction,
+    input_audio: discord.Attachment,
+    impulse_audio: discord.Attachment
+):
+    await interaction.response.defer(thinking=True)
+
+    try:
+        rate_x, x_data = await audio_fx.load_audio_from_attachment(input_audio)
+        rate_h, h_data = await audio_fx.load_audio_from_attachment(impulse_audio)
+    except ValueError as e:
+        await interaction.followup.send(f"Dateiformat-Fehler: {e}")
+        return
+    except Exception as e:
+        await interaction.followup.send(f"Fehler beim Einlesen der Dateien: {e}")
+        return
+
+    # Resample, falls nötig
+    if rate_x != rate_h:
+        try:
+            h_data = audio_fx.refined_resample_audio(h_data, rate_h, rate_x)
+            rate_h = rate_x
+        except Exception as e:
+            await interaction.followup.send(f"Fehler beim Resampling: {e}")
+            return
+
+    # Faltung
+    try:
+        y = audio_fx.refined_convolve_audio(x_data, h_data)
+    except Exception as e:
+        await interaction.followup.send(f"Fehler bei der Faltung: {e}")
+        return
+
+    y_int16 = np.int16(y * 32767)
+    buffer_out = io.BytesIO()
+    try:
+        wavfile.write(buffer_out, rate_x, y_int16)
+    except Exception as e:
+        await interaction.followup.send(f"Fehler beim Erzeugen der Ausgabedatei: {e}")
+        return
+
+    buffer_out.seek(0)
+    try:
+        await interaction.followup.send(
+            content="Hier ist dein gefaltetes Audio:",
+            file=discord.File(buffer_out, filename="reverb_result.wav")
+        )
+    except Exception as e:
+        await interaction.followup.send(f"Fehler beim Senden der Ergebnisdatei: {e}")
+
+
+##########################################################
+# Weitere Befehle (ape, mock, etc.)
+##########################################################
 @bot.tree.command(name="ape", description="Aktiviert den Imitationsmodus für einen Benutzer.")
 async def ape(interaction: discord.Interaction, member: discord.Member, laut: bool = False):
     bot.mimic_users[member.id] = laut
@@ -79,7 +318,6 @@ async def ape(interaction: discord.Interaction, member: discord.Member, laut: bo
         ephemeral=True
     )
 
-# /noape Slash-Befehl
 @bot.tree.command(name="noape", description="Deaktiviert den Imitationsmodus für einen Benutzer.")
 async def noape(interaction: discord.Interaction, member: discord.Member):
     if member.id in bot.mimic_users:
@@ -94,7 +332,6 @@ async def noape(interaction: discord.Interaction, member: discord.Member):
             ephemeral=True
         )
 
-# /mock Slash-Befehl (kombinierter Modus)
 @bot.tree.command(name="mock", description="Aktiviert den kombinierten Modus (lowercase, 'selber <text> du hurensohn').")
 async def mock(interaction: discord.Interaction, member: discord.Member, laut: bool = False):
     bot.mock_users[member.id] = laut
@@ -103,7 +340,6 @@ async def mock(interaction: discord.Interaction, member: discord.Member, laut: b
         ephemeral=True
     )
 
-# /nomock Slash-Befehl
 @bot.tree.command(name="nomock", description="Deaktiviert den kombinierten Modus für einen Benutzer.")
 async def nomock(interaction: discord.Interaction, member: discord.Member):
     if member.id in bot.mock_users:
@@ -118,82 +354,45 @@ async def nomock(interaction: discord.Interaction, member: discord.Member):
             ephemeral=True
         )
 
-# /gpt Slash-Befehl
-@bot.tree.command(name="gpt", description="Frage den GPT-Chatbot.")
-async def gpt(interaction: discord.Interaction, prompt: str):
-    await interaction.response.defer()
-    try:
-        response = client_api.responses.create(
-            model="gpt-4o-mini",
-            instructions="Du bist ein allwissender Assistent. Schreibe maximal 200 Wörter.",
-            max_output_tokens=300,
-            input=prompt,
-        )
-        answer = response.output_text.strip()
-    except Exception as e:
-        answer = f"Fehler beim Abrufen der Antwort: {e}"
-    await interaction.followup.send(answer)
-    print(response)
-
-# /image Slash-Befehl
-@bot.tree.command(name="image", description="Generiert ein Bild mit DALL·E 3 basierend auf einem Prompt.")
-async def image(interaction: discord.Interaction, prompt: str):
-    await interaction.response.defer()
-    try:
-        response = client_api.images.generate(
-            model="dall-e-3",
-            prompt=prompt,
-            quality="standard",
-            n=1,
-            size="1024x1024"
-        )
-        image_url = response.data[0].url
-    except Exception as e:
-        image_url = f"Fehler beim Abrufen des Bildes: {e}"
-    await interaction.followup.send(image_url)
-
-# /chat Slash-Befehl (globaler Chat-Modus aktivieren)
 @bot.tree.command(name="chat", description="Aktiviert den globalen Chat-Modus.")
 async def chat(interaction: discord.Interaction):
     bot.chat_mode = True
     await interaction.response.send_message("Chat-Modus aktiviert.", ephemeral=True)
 
-# /nochat Slash-Befehl (globalen Chat-Modus deaktivieren)
 @bot.tree.command(name="nochat", description="Deaktiviert den globalen Chat-Modus.")
 async def nochat(interaction: discord.Interaction):
     bot.chat_mode = False
     await interaction.response.send_message("Chat-Modus deaktiviert.", ephemeral=True)
 
-# /maggus Slash-Befehl (Markus-Rühl-Stil aktivieren)
 @bot.tree.command(name="maggus", description="Aktiviert den Markus-Rühl-Stil für Antworten.")
 async def maggus(interaction: discord.Interaction):
     bot.maggus_mode = True
     await interaction.response.send_message("Markus-Rühl-Stil aktiviert.", ephemeral=True)
 
-# /nomaggus Slash-Befehl (Markus-Rühl-Stil deaktivieren)
 @bot.tree.command(name="nomaggus", description="Deaktiviert den Markus-Rühl-Stil für Antworten.")
 async def nomaggus(interaction: discord.Interaction):
     bot.maggus_mode = False
     await interaction.response.send_message("Markus-Rühl-Stil deaktiviert.", ephemeral=True)
 
-# Ereignis: Verarbeitung eingehender Nachrichten
+##########################################################
+# on_message-Event (ape/mock/chat)
+##########################################################
 @bot.event
 async def on_message(message: discord.Message):
     if message.author.bot:
         return
 
-    # Prüfe zuerst die speziellen Modi:
     if message.author.id in bot.mimic_users:
         transformed = ape_transform(message.content)
         tts_flag = bot.mimic_users[message.author.id]
         await message.channel.send(transformed, tts=tts_flag)
+
     elif message.author.id in bot.mock_users:
         response = f"selber {message.content.lower()} du hurensohn"
         tts_flag = bot.mock_users[message.author.id]
         await message.channel.send(response, tts=tts_flag)
+
     else:
-        # Globaler Chat-Modus: Überlege, ob der Bot antworten soll.
-        # Der Bot antwortet, wenn "dr. mehmer" vorkommt oder wenn die Nachricht mit einem Fragezeichen endet.
         if bot.chat_mode:
             trigger = False
             content_lower = message.content.lower()
@@ -201,31 +400,34 @@ async def on_message(message: discord.Message):
                 trigger = True
             if trigger:
                 channel_id = message.channel.id
-                # Initialisiere den Chat-Verlauf für den Channel, falls nicht vorhanden
                 if channel_id not in bot.chat_history:
                     bot.chat_history[channel_id] = []
-                # Füge die User-Nachricht zum Verlauf hinzu
                 bot.chat_history[channel_id].append({"role": "user", "content": message.content})
                 if len(bot.chat_history[channel_id]) > MAX_HISTORY:
                     bot.chat_history[channel_id] = bot.chat_history[channel_id][-MAX_HISTORY:]
-                # Falls der Markus-Rühl-Stil aktiviert ist, wähle einen zufälligen Spruch aus.
+
                 if bot.maggus_mode:
+                    maggus_phrases = [
+                        "Ey, Alter, reiß dich zusammen und pump mal richtig – jetzt wird's fett!",
+                        "Bruder, keine halben Sachen – du musst die Hanteln knallen lassen!",
+                        "Komm schon, zeig deine Muckis!"
+                    ]
                     answer = random.choice(maggus_phrases)
                 else:
-                    # Generiere eine Antwort basierend auf dem Verlauf
-                    answer = generate_chat_response(bot.chat_history[channel_id])
+                    answer = "Hier wäre eine Chat-Antwort – ChatGPT-Integration."
+
                 await message.channel.send(answer)
-                # Füge die Bot-Antwort zum Verlauf hinzu
                 bot.chat_history[channel_id].append({"role": "assistant", "content": answer})
 
-    # Damit auch klassische Befehle verarbeitet werden
     await bot.process_commands(message)
 
-# Sync-Befehl (nur für den Bot-Owner)
+##########################################################
+# sync und Start
+##########################################################
 @bot.command()
 @commands.guild_only()
 @commands.is_owner()
-async def sync(ctx: commands.Context, guilds: commands.Greedy[discord.Object], spec: Optional[Literal["~", "*", "^"]] = None) -> None:
+async def sync(ctx: commands.Context, guilds: commands.Greedy[discord.Object], spec: Optional[Literal["~","*","^"]] = None) -> None:
     if not guilds:
         if spec == "~":
             synced = await ctx.bot.tree.sync(guild=ctx.guild)
