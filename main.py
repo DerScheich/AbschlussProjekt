@@ -80,6 +80,25 @@ async def gpt(interaction: discord.Interaction, prompt: str):
     await interaction.followup.send(answer)
     print(response)
 
+# Registriere den Slash-Befehl /image für DALL·E 3
+@bot.tree.command(name="image", description="Generiert ein Bild mit DALL·E 3 (Standard, 1024x1024) basierend auf einem Prompt.")
+async def image(interaction: discord.Interaction, prompt: str):
+    # Deferte die Antwort, um längere Wartezeiten zu kaschieren
+    await interaction.response.defer()
+    try:
+        response = client.images.generate(
+            model="dall-e-3",
+            prompt=prompt,
+            quality= "standard",
+            n=1,
+            size="1024x1024"
+        )
+        image_url = response.data[0].url
+    except Exception as e:
+        image_url = f"Fehler beim Abrufen des Bildes: {e}"
+    # Sende das Bild (bzw. den Link) öffentlich in den Channel, wie Midjourney
+    await interaction.followup.send(image_url)
+
 # Bei jeder Nachricht wird geprüft, ob der Autor im Imitationsmodus ist.
 @bot.event
 async def on_message(message: discord.Message):

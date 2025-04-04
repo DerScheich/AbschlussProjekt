@@ -7,6 +7,9 @@ Deaktiviert den Imitationsmodus.
 /gpt <prompt>
 Nutzt GPT-Api zum Beantworten der Frage. Kostet Geld lulul.
 
+/image <promt>
+Generiert mit Dall-E ein Bild ($0.04 pro Bild).
+
 /insult <username>
 Aktiviert den Insult-Modus: Der Bot antwortet immer mit „du hurensohn“.
 
