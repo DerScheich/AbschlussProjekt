@@ -4,6 +4,9 @@ Aktiviert den Imitationsmodus: Der Bot gibt Nachrichten des Benutzers in abwechs
 /noape <username>
 Deaktiviert den Imitationsmodus.
 
+/gpt <prompt>
+Nutzt GPT-Api zum Beantworten der Frage.
+
 /insult <username>
 Aktiviert den Insult-Modus: Der Bot antwortet immer mit „du hurensohn“.
 
