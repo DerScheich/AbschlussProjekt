@@ -8,10 +8,11 @@ import io
 from discord.ext import commands
 from dotenv import load_dotenv
 from typing import Literal, Optional
+
 from openai import OpenAI
 from scipy.io import wavfile
 from scipy import signal
-from pydub import AudioSegment  # Für MP3-Unterstützung
+from pydub import AudioSegment
 
 load_dotenv()
 
