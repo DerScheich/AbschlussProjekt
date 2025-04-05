@@ -1,29 +1,37 @@
-/ape <username>
-Aktiviert den Imitationsmodus: Der Bot gibt Nachrichten des Benutzers in abwechselnder Groß-/Kleinschreibung aus. Optional mit laut als TTS.
+/ape <username> [laut]
+Aktiviert den Imitationsmodus: Der Bot gibt Nachrichten des Benutzers abwechselnd in Groß‑ und Kleinschreibung aus. Mit „laut“ wird TTS aktiviert.
 
 /noape <username>
-Deaktiviert den Imitationsmodus.
+Deaktiviert den Imitationsmodus für den angegebenen Benutzer.
 
-/gpt <prompt>
-Nutzt GPT-Api zum Beantworten der Frage. Kostet Geld lulul.
+/slowed <datei>
+Verlangsamt ein Audiosignal (85 % der Originalgeschwindigkeit).
 
-/image <promt>
-Generiert mit Dall-E ein Bild ($0.04 pro Bild).
+/slowed_reverb <input_audio> <impulse_audio>
+Führt eine Faltung (Reverb) durch und verlangsamt das Audio (ca. 15 % langsamer).
 
-/insult <username>
-Aktiviert den Insult-Modus: Der Bot antwortet immer mit „du hurensohn“.
+/reverb <input_audio> <impulse_audio>
+Falte ein Audiosignal mit einer Impulsantwort (nur Reverb, ohne Verlangsamung).
 
-/noinsult <username>
-Deaktiviert den Insult-Modus.
+/watermark <input_file> <watermark_file> [position] [scale] [transparency]
+Fügt einem Bild oder Video ein Wasserzeichen hinzu.
+– input_file: Bild oder Video
+– watermark_file: Wasserzeichen (Bild)
+– position: top-left, top-right, bottom-left, bottom-right oder center
+– scale: Skalierungsfaktor (z.B. 1.0)
+– transparency: Transparenz (0.0 bis 1.0)
 
-/mock <username>
-Aktiviert den kombinierten Modus: Der Bot gibt die Nachricht des Benutzers komplett in lowercase aus, vorangestellt mit „selber“ und ergänzt mit „du hurensohn“. Optional mit laut als TTS.
+/mock <username> [laut]
+Aktiviert den Mock-Modus: Der Bot gibt Nachrichten des Benutzers komplett in Kleinbuchstaben aus, vorangestellt mit „selber“ und ergänzt mit „du hurensohn“. Mit „laut“ wird TTS aktiviert.
 
 /nomock <username>
-Deaktiviert den kombinierten Modus.
+Deaktiviert den Mock-Modus.
 
-/<befehl> laut <username>
-Ließt die Antwort des Bots vor.
+/maggus
+Aktiviert den Markus-Rühl-Stil für GPT-Antworten (spezielle, direkte Ausdrucksweise).
 
-ping
-Testbefehl: Antwortet mit „pong“.
+/nomaggus
+Deaktiviert den Markus-Rühl-Stil.
+
+@mention
+Wird der Bot per @ erwähnt, antwortet er mit GPT (kostenpflichtig).

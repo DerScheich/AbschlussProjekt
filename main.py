@@ -576,16 +576,6 @@ async def nomock(interaction: discord.Interaction, member: discord.Member):
             ephemeral=True
         )
 
-@bot.tree.command(name="chat", description="Aktiviert den globalen Chat-Modus.")
-async def chat(interaction: discord.Interaction):
-    bot.chat_mode = True
-    await interaction.response.send_message("Chat-Modus aktiviert.", ephemeral=True)
-
-@bot.tree.command(name="nochat", description="Deaktiviert den globalen Chat-Modus.")
-async def nochat(interaction: discord.Interaction):
-    bot.chat_mode = False
-    await interaction.response.send_message("Chat-Modus deaktiviert.", ephemeral=True)
-
 @bot.tree.command(name="maggus", description="Aktiviert den Markus-Rühl-Stil für Antworten.")
 async def maggus(interaction: discord.Interaction):
     bot.maggus_mode = True
@@ -615,11 +605,7 @@ async def on_message(message: discord.Message):
         await message.channel.send(response, tts=tts_flag)
 
     else:
-        if bot.chat_mode:
-            trigger = False
-            if bot.chat_mode and (bot.user in message.mentions):
-                trigger = True
-            if trigger:
+        if bot.user in message.mentions:
                 channel_id = message.channel.id
                 if channel_id not in bot.chat_history:
                     bot.chat_history[channel_id] = []
@@ -667,7 +653,7 @@ async def on_message(message: discord.Message):
                 bot.chat_history[channel_id].append({"role": "assistant", "content": answer})
 
                 # Stelle sicher, dass Discord noch alle Befehle verarbeitet
-            await bot.process_commands(message)
+                await bot.process_commands(message)
 
 ##########################################################
 # sync und Start
