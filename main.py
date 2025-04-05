@@ -1,7 +1,5 @@
 import os
 import discord
-import random
-import asyncio
 import numpy as np
 import io
 
@@ -656,7 +654,7 @@ async def on_message(message: discord.Message):
 @bot.command()
 @commands.guild_only()
 @commands.is_owner()
-async def sync(ctx: commands.Context, guilds: commands.Greedy[discord.Object], spec: Optional[Literal["~","*","^"]] = None) -> None:
+async def sync(ctx: commands.Context, guilds: commands.Greedy[discord.Object], spec: Optional[Literal["~", "*", "^"]] = None) -> None:
     if not guilds:
         if spec == "~":
             synced = await ctx.bot.tree.sync(guild=ctx.guild)
