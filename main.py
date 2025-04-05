@@ -14,11 +14,33 @@ from scipy.io import wavfile
 from scipy import signal
 from pydub import AudioSegment
 
+import cv2
+import tempfile
+import subprocess
+##########################################################
+# Bot-Setup
+##########################################################
+
 load_dotenv()
 
 client = OpenAI(
     api_key = os.getenv("OPENAI_API_KEY"),
 )
+
+intents = discord.Intents.default()
+intents.message_content = True
+intents.members = True
+
+bot = commands.Bot(command_prefix="/", intents=intents)
+
+# Deine bisherigen Variablen und Modi
+bot.mimic_users = {}
+bot.mock_users = {}
+bot.chat_mode = False
+bot.maggus_mode = False
+bot.chat_history = {}
+
+MAX_HISTORY = 10
 
 ##########################################################
 # Klasse für Audioeffekte & Laden der Dateien
@@ -119,28 +141,155 @@ class AudioEffects:
 
         return slowed
 
-
-##########################################################
-# Bot / Setup
-##########################################################
-
-intents = discord.Intents.default()
-intents.message_content = True
-intents.members = True
-
-bot = commands.Bot(command_prefix="/", intents=intents)
-
-# Deine bisherigen Variablen und Modi
-bot.mimic_users = {}
-bot.mock_users = {}
-bot.chat_mode = False
-bot.maggus_mode = False
-bot.chat_history = {}
-
-MAX_HISTORY = 10
-
-# Instanz der AudioEffects-Klasse, die wir für alle Kommandos verwenden können
 audio_fx = AudioEffects()
+
+##################################################################
+#Klasse für Wasserzeichen
+##################################################################
+class WatermarkHandler:
+    """
+    Diese Klasse enthält Funktionen zum Hinzufügen von Wasserzeichen zu Bildern und Videos.
+    """
+
+    def add_watermark_image(
+            self,
+            image: np.ndarray,
+            watermark: np.ndarray,
+            position: str = "center",
+            scale: float = 1.0,
+            transparency: float = 1.0
+    ) -> np.ndarray:
+        # Skalierung
+        wH, wW = watermark.shape[:2]
+        scaled_width = int(wW * scale)
+        scaled_height = int(wH * scale)
+        watermark_resized = cv2.resize(watermark, (scaled_width, scaled_height), interpolation=cv2.INTER_AREA)
+        h, w = image.shape[:2]
+        wH2, wW2 = watermark_resized.shape[:2]
+        positions = {
+            "top-left": (0, 0),
+            "top-right": (w - wW2, 0),
+            "bottom-left": (0, h - wH2),
+            "bottom-right": (w - wW2, h - wH2),
+            "center": ((w - wW2) // 2, (h - wH2) // 2)
+        }
+        if position not in positions:
+            position = "center"
+        x, y = positions[position]
+        if x < 0 or y < 0 or (x + wW2 > w) or (y + wH2 > h):
+            return image
+        roi = image[y:y + wH2, x:x + wW2]
+        if watermark_resized.shape[2] == 4:
+            alpha_channel = watermark_resized[:, :, 3] / 255.0 * transparency
+            color_channels = watermark_resized[:, :, :3]
+        else:
+            alpha_channel = np.ones((wH2, wW2), dtype=np.float32) * transparency
+            color_channels = watermark_resized
+        for c in range(3):
+            roi[:, :, c] = alpha_channel * color_channels[:, :, c] + (1 - alpha_channel) * roi[:, :, c]
+        image[y:y + wH2, x:x + wW2] = roi
+        return image
+
+    def watermark_video_file(
+        self,
+        video_bytes: bytes,
+        watermark_bytes: bytes,
+        position: str,
+        scale: float,
+        transparency: float
+    ) -> bytes:
+        temp_dir = tempfile.gettempdir()
+        temp_input = os.path.join(temp_dir, "watermark_inputvideo.mp4")
+        temp_video = os.path.join(temp_dir, "watermark_tempvideo.mp4")
+        final_output = os.path.join(temp_dir, "watermark_final_output.mp4")
+        with open(temp_input, "wb") as f:
+            f.write(video_bytes)
+        wm_array = np.frombuffer(watermark_bytes, np.uint8)
+        wm_img = cv2.imdecode(wm_array, cv2.IMREAD_UNCHANGED)
+        if wm_img is None:
+            raise ValueError("Wasserzeichen-Datei konnte nicht als Bild decodiert werden.")
+        cap = cv2.VideoCapture(temp_input)
+        if not cap.isOpened():
+            raise ValueError("Eingabevideo konnte nicht geöffnet werden.")
+        fourcc = cv2.VideoWriter_fourcc(*"mp4v")
+        fps = cap.get(cv2.CAP_PROP_FPS)
+        width = int(cap.get(cv2.CAP_PROP_FRAME_WIDTH))
+        height = int(cap.get(cv2.CAP_PROP_FRAME_HEIGHT))
+        out_vid = cv2.VideoWriter(temp_video, fourcc, fps, (width, height))
+        while True:
+            ret, frame = cap.read()
+            if not ret:
+                break
+            frame_result = self.add_watermark_image(frame, wm_img, position, scale, transparency)
+            out_vid.write(frame_result)
+        cap.release()
+        out_vid.release()
+        # Füge Audio hinzu und re-kodiere mit ffmpeg (H.264/AAC)
+        command = [
+            "ffmpeg", "-y",
+            "-i", temp_video,
+            "-i", temp_input,
+            "-c:v", "libx264", "-preset", "veryfast", "-crf", "23",
+            "-c:a", "aac",
+            "-map", "0:v:0",
+            "-map", "1:a:0",
+            "-shortest",
+            final_output
+        ]
+        result = subprocess.run(command, stdout=subprocess.PIPE, stderr=subprocess.PIPE)
+        if result.returncode != 0:
+            raise Exception("FFmpeg Error: " + result.stderr.decode("utf-8"))
+        with open(final_output, "rb") as f:
+            result_bytes = f.read()
+        return result_bytes
+
+    def watermark_frame(
+        self,
+        frame: np.ndarray,
+        wm_img: np.ndarray,
+        position: str,
+        scale: float,
+        transparency: float
+    ) -> np.ndarray:
+        """Wendet ein Wasserzeichen auf einen einzelnen Frame an."""
+        return self.add_watermark_image(
+            image=frame,
+            watermark=wm_img,
+            position=position,
+            scale=scale,
+            transparency=transparency
+        )
+
+    def watermark_image_file(
+        self,
+        image_bytes: bytes,
+        watermark_bytes: bytes,
+        position: str,
+        scale: float,
+        transparency: float
+    ) -> bytes:
+        """Öffnet ein Bild + Wasserzeichen aus Bytes, setzt WM drauf und gibt PNG-Bytes zurück."""
+        # decode input image
+        in_array = np.frombuffer(image_bytes, np.uint8)
+        in_img = cv2.imdecode(in_array, cv2.IMREAD_COLOR)
+        # decode watermark
+        wm_array = np.frombuffer(watermark_bytes, np.uint8)
+        wm_img = cv2.imdecode(wm_array, cv2.IMREAD_UNCHANGED)
+
+        if in_img is None or wm_img is None:
+            raise ValueError("Eingabedatei oder Wasserzeichen nicht decodierbar als Bild.")
+
+        # WM anwenden
+        result = self.add_watermark_image(in_img, wm_img, position, scale, transparency)
+
+        # Result als PNG codieren
+        success, encoded = cv2.imencode(".png", result)
+        if not success:
+            raise ValueError("Fehler beim Kodieren des Ergebnis-Bildes.")
+
+        return encoded.tobytes()
+
+watermark_handler = WatermarkHandler()
 
 ##########################################################
 # Hilfsfunktion ape_transform für on_message
@@ -158,7 +307,7 @@ def ape_transform(text: str) -> str:
     return new_text
 
 ##########################################################
-# 1) /slowed
+# /slowed
 ##########################################################
 @bot.tree.command(name="slowed", description="Verlangsame das Audio auf 85 % (Slowed-Only).")
 async def slowed(
@@ -199,7 +348,7 @@ async def slowed(
 
 
 ##########################################################
-# 2) /slowed_reverb
+# /slowed_reverb
 ##########################################################
 @bot.tree.command(name="slowed_reverb", description="Slowed+Reverb: Audio ~15% langsamer & Hall-Effekt.")
 async def slowed_reverb(
@@ -258,7 +407,7 @@ async def slowed_reverb(
 
 
 ##########################################################
-# 3) /reverb
+# /reverb
 ##########################################################
 @bot.tree.command(name="reverb", description="Falte ein Audiosignal (WAV/MP3) mit einer Impulsantwort (WAV/MP3).")
 async def reverb(
@@ -310,6 +459,74 @@ async def reverb(
         )
     except Exception as e:
         await interaction.followup.send(f"Fehler beim Senden der Ergebnisdatei: {e}")
+
+##########################################################
+# /watermark
+##########################################################
+
+@bot.tree.command(name="watermark", description="Wasserzeichen (Bild) auf ein Bild oder Video anwenden.")
+async def watermark_cmd(
+    interaction: discord.Interaction,
+    input_file: discord.Attachment,
+    watermark_file: discord.Attachment,
+    position: Literal["top-left", "top-right", "bottom-left", "bottom-right", "center"] = "center",
+    scale: float = 1.0,
+    transparency: float = 1.0
+):
+    """
+    /watermark input_file: (Bild|Video) watermark_file: (Bild) position: ...
+               scale=1.0 transparency=1.0
+    Gibt watermark_result.png/.mp4 zurück
+    """
+    await interaction.response.defer(thinking=True)
+
+    try:
+        # 1) Bytes lesen
+        input_bytes = await input_file.read()
+        wm_bytes = await watermark_file.read()
+    except Exception as e:
+        await interaction.followup.send(f"Fehler beim Herunterladen der Dateien: {e}")
+        return
+
+    in_name = input_file.filename.lower()
+    out_filename = None
+    try:
+        # 2) Bild oder Video?
+        if in_name.endswith((".png", ".jpg", ".jpeg", ".bmp")):
+            # -> Bild
+            result_bytes = watermark_handler.watermark_image_file(
+                image_bytes=input_bytes,
+                watermark_bytes=wm_bytes,
+                position=position,
+                scale=scale,
+                transparency=transparency
+            )
+            out_filename = "watermark_result.png"
+
+        elif in_name.endswith((".mp4", ".avi", ".mov", ".mkv")):
+            # -> Video
+            result_bytes = watermark_handler.watermark_video_file(
+                video_bytes=input_bytes,
+                watermark_bytes=wm_bytes,
+                position=position,
+                scale=scale,
+                transparency=transparency
+            )
+            out_filename = "watermark_result.mp4"
+        else:
+            await interaction.followup.send("Eingabedatei muss ein Bild (png/jpg/bmp) oder Video (mp4/avi/mov/mkv) sein!")
+            return
+    except Exception as e:
+        await interaction.followup.send(f"Fehler bei der Wasserzeichen-Verarbeitung: {e}")
+        return
+
+    # 3) Antwort senden
+    out_buffer = io.BytesIO(result_bytes)
+    out_buffer.seek(0)
+    await interaction.followup.send(
+        content="Hier ist dein Wasserzeichen-Ergebnis:",
+        file=discord.File(out_buffer, filename=out_filename)
+    )
 
 
 ##########################################################
