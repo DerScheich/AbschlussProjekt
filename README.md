@@ -6,3 +6,4 @@ To install the required dependencies, run `poetry install --no-root`.
 
 To start the application, run `poetry run python main.py`.
 
+To add dependencies, run `peotry add <library>`.
