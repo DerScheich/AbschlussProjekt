@@ -16,7 +16,8 @@ bot = commands.Bot(command_prefix="/", intents=intents)
 initial_extensions = [
     "cogs.audio_cog",
     "cogs.chat_cog",
-    "cogs.watermark_cog"
+    "cogs.watermark_cog",
+    "cogs.player_cog"
 ]
 
 async def load_extensions():
@@ -62,7 +63,7 @@ async def sync(ctx: commands.Context, guilds: commands.Greedy[discord.Object], s
 
 @bot.event
 async def on_ready():
-    await bot.tree.sync()  # WICHTIG: Synchronisiere Slash-Commands
+    await bot.tree.sync()  # Synchronisiere Slash-Commands
     print(f"🟢 Bot ist online als {bot.user}!")
 
 async def main():
