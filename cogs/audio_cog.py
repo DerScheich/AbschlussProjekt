@@ -15,7 +15,8 @@ class AudioCog(commands.Cog):
     async def slowed(
             self,
             ctx: commands.Context,
-            input_audio: discord.Attachment
+            input_audio: discord.Attachment,
+            slow_factor: float = 0.85
     ):
         await ctx.defer()
         try:
@@ -23,7 +24,7 @@ class AudioCog(commands.Cog):
         except Exception as e:
             return await ctx.send(f"Fehler: {e}")
 
-        slowed_data = audio_fx.slow_audio(data_in, slow_factor=0.85)
+        slowed_data = audio_fx.slow_audio(data_in, slow_factor=slow_factor)
         slowed_int16 = np.int16(slowed_data * 32767)
         buffer_out = io.BytesIO()
         try:
@@ -38,7 +39,8 @@ class AudioCog(commands.Cog):
             self,
             ctx: commands.Context,
             input_audio: discord.Attachment,
-            impulse_audio: discord.Attachment
+            impulse_audio: discord.Attachment,
+            slow_factor: float = 0.85
     ):
         await ctx.defer()
         try:
@@ -57,7 +59,7 @@ class AudioCog(commands.Cog):
             y = audio_fx.refined_convolve_audio(x_data, h_data)
         except Exception as e:
             return await ctx.send(f"Fehler bei der Faltung: {e}")
-        slowed = audio_fx.slow_audio(y, slow_factor=0.85)
+        slowed = audio_fx.slow_audio(y, slow_factor=slow_factor)
         slowed_int16 = np.int16(slowed * 32767)
         buffer_out = io.BytesIO()
         try:
