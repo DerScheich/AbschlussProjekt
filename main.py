@@ -17,7 +17,7 @@ initial_extensions = [
     "cogs.audio_cog",
     "cogs.chat_cog",
     "cogs.watermark_cog",
-    "cogs.player_cog"
+    "cogs.play_cog"
 ]
 
 async def load_extensions():

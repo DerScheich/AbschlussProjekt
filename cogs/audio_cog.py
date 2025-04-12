@@ -102,5 +102,68 @@ class AudioCog(commands.Cog):
         buffer_out.seek(0)
         await ctx.send(file=discord.File(buffer_out, filename="reverb_result.wav"))
 
+    @commands.hybrid_command(name="stereo",
+                             description="Macht aus einem Mono-Signal ein Stereo-Signal mittels Haas-Effekt.")
+    async def stereo(
+            self,
+            ctx: commands.Context,
+            input_audio: discord.Attachment
+    ):
+        await ctx.defer()
+        try:
+            rate, data = await audio_fx.load_audio_from_attachment(input_audio)
+        except Exception as e:
+            return await ctx.send(f"Fehler beim Laden der Audiodatei: {e}")
+
+        if data.ndim != 1:
+            return await ctx.send("Fehler: Eingabedatei ist kein Mono-Signal.")
+
+        try:
+            stereo_data = audio_fx.mono_to_stereo(data, rate)
+        except Exception as e:
+            return await ctx.send(f"Fehler bei der Umwandlung: {e}")
+
+        # Umwandeln in int16
+        stereo_int16 = np.int16(stereo_data * 32767)
+        buffer_out = io.BytesIO()
+        try:
+            wavfile.write(buffer_out, rate, stereo_int16)
+        except Exception as e:
+            return await ctx.send(f"Fehler beim Schreiben der Ausgabedatei: {e}")
+        buffer_out.seek(0)
+        await ctx.send(file=discord.File(buffer_out, filename="stereo_result.wav"))
+
+    @commands.hybrid_command(name="mono", description="Macht aus einem Stereo-Signal ein Mono-Signal.")
+    async def mono(
+            self,
+            ctx: commands.Context,
+            input_audio: discord.Attachment
+    ):
+        await ctx.defer()
+        try:
+            rate, data = await audio_fx.load_audio_from_attachment(input_audio)
+        except Exception as e:
+            return await ctx.send(f"Fehler beim Laden der Audiodatei: {e}")
+
+        if data.ndim != 2 or data.shape[1] != 2:
+            return await ctx.send("Fehler: Eingabedatei ist kein Stereo-Signal.")
+
+        try:
+            mono_data = audio_fx.stereo_to_mono(data)
+        except Exception as e:
+            return await ctx.send(f"Fehler bei der Umwandlung: {e}")
+
+        # Umwandeln in int16
+        mono_int16 = np.int16(mono_data * 32767)
+        buffer_out = io.BytesIO()
+        try:
+            wavfile.write(buffer_out, rate, mono_int16)
+        except Exception as e:
+            return await ctx.send(f"Fehler beim Schreiben der Ausgabedatei: {e}")
+        buffer_out.seek(0)
+        await ctx.send(file=discord.File(buffer_out, filename="mono_result.wav"))
+
 async def setup(bot):
     await bot.add_cog(AudioCog(bot))
+
+
