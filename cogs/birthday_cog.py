@@ -156,7 +156,7 @@ class BirthdayCog(commands.Cog):
                         age = self.birthday_utils.get_age(bday)
                         member = guild.get_member(int(user_id))
                         if member:
-                            await channel.send(f"Alles Gute zum {age}ten Geburtstag {member.mention}!")
+                            await channel.send(f"Alles Gute zum {age}ten Geburtstag {member.mention}🎉🎂 ")
                         else:
                             pass
 
