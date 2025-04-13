@@ -1,6 +1,4 @@
 import base64
-import os
-import json
 import asyncio
 from openai import OpenAI
 from pylatexenc.latex2text import LatexNodes2Text  # Wir nutzen pylatexenc, da es keine separate "latex2text" Library gibt
@@ -39,7 +37,7 @@ def check_image(image_bytes: bytes, prompt: str) -> str:
     :return: Die verarbeitete Antwort des GPT-Modells als Text.
     """
     base64_img = encode_image(image_bytes)
-    client = OpenAI()  # Voraussetzung: OPENAI_API_KEY in der Umgebung gesetzt
+    client = OpenAI()
 
     # Nachrichteninhalt: Zuerst der Prompt als Text, danach das Bild als "image_url"
     messages = [

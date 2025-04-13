@@ -17,14 +17,24 @@ class CheckCog(commands.Cog):
         Das Ergebnis wird in einem hübsch formatierten Embed zurückgegeben. Zudem wird das ursprüngliche
         Bild als Attachment erneut angezeigt, um das Feedback besser nachvollziehen zu können.
         """
+        # Überprüfe, ob die hochgeladene Datei ein unterstütztes Bildformat hat.
+        allowed_extensions = (".png", ".jpg", ".jpeg", ".bmp")
+        if not file.filename.lower().endswith(allowed_extensions):
+            return await ctx.send(
+                "Ungültiger Dateityp. Bitte lade ein Bild im Format .png, .jpg, .jpeg oder .bmp hoch."
+            )
+
         await ctx.defer()
         try:
             image_bytes = await file.read()
         except Exception as e:
             return await ctx.send(f"Fehler beim Lesen der Bilddatei: {e}")
 
-        # Hole die GPT-Antwort, die LaTeX-Ausdrücke mithilfe pylatexenc in Klartext umwandelt
-        result = await check_image_async(image_bytes, prompt)
+        # Hole die GPT-Antwort; dabei wird der Bildinhalt per OCR extrahiert und geprüft.
+        try:
+            result = await check_image_async(image_bytes, prompt)
+        except Exception as e:
+            return await ctx.send(f"Fehler während der Bildprüfung: {e}")
 
         # Erstelle ein Embed für eine übersichtliche Darstellung
         embed = discord.Embed(
