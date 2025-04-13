@@ -35,3 +35,13 @@ Deaktiviert den Markus-Rühl-Stil.
 
 @mention
 Wird der Bot per @ erwähnt, antwortet er mit GPT (kostenpflichtig).
+
+/setbirthday <member> <geburtsdatum> – Geburtstag setzen (Format: TT.MM.JJJJ)
+
+/viewbirthdays – Listet alle gesetzten Geburtstage in der Guild auf
+
+/deletebirthday <member> – Löscht den Geburtstag eines Members
+
+/editbirthday <member> <neues_datum> – Bearbeitet den Geburtstag eines Members
+
+/viewbirthday <member> – Zeigt den Geburtstag eines bestimmten Members an

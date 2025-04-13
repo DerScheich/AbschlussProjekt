@@ -18,7 +18,8 @@ initial_extensions = [
     "cogs.chat_cog",
     "cogs.watermark_cog",
     "cogs.play_cog",
-    "cogs.check_cog"
+    "cogs.check_cog",
+    "cogs.birthday_cog"
 ]
 
 async def load_extensions():
