@@ -4,6 +4,7 @@ import os
 
 BIRTHDAY_FILE = "birthdays.json"
 
+
 class BirthdayUtils:
     """
     Diese Klasse verwaltet die Geburtstage pro Guild.
@@ -11,17 +12,34 @@ class BirthdayUtils:
     Struktur:
       {
          "guild_id1": {
-             "user_id1": {"birthday": "YYYY-MM-DD", "last_wished": "2023" oder None},
+             "user_id1": {
+                 "birthday": "YYYY-MM-DD",
+                 "name": "gewünschter Name",
+                 "last_wished": "2023" oder None
+             },
              "user_id2": { ... }
          },
          "guild_id2": { ... }
       }
     """
+
     def __init__(self):
-        self.birthdays = {}  # guild_id -> { user_id: {birthday, last_wished} }
+        """
+        Initialisiert die BirthdayUtils-Klasse und lädt vorhandene Geburtstage aus der JSON-Datei.
+
+        :param: keine
+        @return: None
+        """
+        self.birthdays = {}  # guild_id -> { user_id: {birthday, name, last_wished} }
         self.load_birthdays()
 
     def load_birthdays(self):
+        """
+        Lädt die Geburtstage aus der Datei BIRTHDAY_FILE, falls diese vorhanden ist.
+
+        :param: keine
+        @return: None (setzt self.birthdays)
+        """
         if os.path.exists(BIRTHDAY_FILE):
             try:
                 with open(BIRTHDAY_FILE, "r") as f:
@@ -30,16 +48,27 @@ class BirthdayUtils:
                 print(f"Error loading birthdays: {e}")
 
     def save_birthdays(self):
+        """
+        Speichert die aktuelle Geburtstags-Datenstruktur in die Datei BIRTHDAY_FILE.
+
+        :param: keine
+        @return: None
+        """
         try:
             with open(BIRTHDAY_FILE, "w") as f:
                 json.dump(self.birthdays, f, indent=4)
         except Exception as e:
             print(f"Error saving birthdays: {e}")
 
-    def set_birthday(self, guild_id: str, user_id: str, birthday_str: str) -> str:
+    def set_birthday(self, guild_id: str, user_id: str, birthday_str: str, name: str = None) -> str:
         """
-        Versucht, den Geburtstag (im Format TT.MM.JJJJ) für den User zu speichern.
-        Falls bereits ein Geburtstag gesetzt wurde, wird eine entsprechende Meldung zurückgegeben.
+        Speichert den Geburtstag für einen Nutzer in der angegebenen Guild.
+
+        :param guild_id: ID der Guild als string.
+        :param user_id: ID des Nutzers als string.
+        :param birthday_str: Geburtsdatum als string im Format TT.MM.JJJJ.
+        :param name: Optionaler Name, der zusätzlich gespeichert wird. Falls nicht gesetzt, wird ein leerer String übernommen.
+        @return: Bestätigungsmeldung als string oder Fehlermeldung bei ungültigem Format oder bereits gesetztem Geburtstag.
         """
         try:
             birthday = datetime.strptime(birthday_str, "%d.%m.%Y").date()
@@ -52,18 +81,25 @@ class BirthdayUtils:
         if user_id in self.birthdays[guild_id]:
             return "Du hast bereits deinen Geburtstag gesetzt."
 
+        if not name:
+            name = ""
+
         self.birthdays[guild_id][user_id] = {
             "birthday": birthday.strftime("%Y-%m-%d"),
+            "name": name,
             "last_wished": None
         }
         self.save_birthdays()
+        if name:
+            return f"Dein Geburtstag wurde auf {birthday.strftime('%d.%m.%Y')} gesetzt. Gespeicherter Name: {name}."
         return f"Dein Geburtstag wurde auf {birthday.strftime('%d.%m.%Y')} gesetzt."
 
     def check_birthdays(self, guild_id: str):
         """
-        Prüft für eine bestimmte Guild, welche User heute Geburtstag haben und
-        ob noch nicht in diesem Jahr gewünscht wurde.
-        Gibt eine Liste mit Tupeln (user_id, birthday) zurück.
+        Prüft, welche Nutzer in der angegebenen Guild heute Geburtstag haben und noch nicht in diesem Jahr gewünscht wurden.
+
+        :param guild_id: Die ID der Guild als string.
+        @return: Eine Liste von Tupeln (user_id, birthday) der Nutzer, die heute Geburtstag haben.
         """
         today = date.today()
         birthday_users = []
@@ -86,7 +122,10 @@ class BirthdayUtils:
 
     def get_age(self, birthday_date: date) -> int:
         """
-        Berechnet das aktuelle Alter basierend auf dem Geburtsdatum.
+        Berechnet das Alter eines Nutzers basierend auf dem Geburtsdatum.
+
+        :param birthday_date: Das Geburtsdatum als date-Objekt.
+        @return: Das aktuelle Alter als integer.
         """
         today = date.today()
         age = today.year - birthday_date.year
