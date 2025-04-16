@@ -52,7 +52,7 @@ def check_image(image_bytes: bytes, prompt: str) -> str:
 
     try:
         response = client.chat.completions.create(
-            model="gpt-4o-mini",  # Kostengünstiges, zuverlässiges Modell
+            model="gpt-4o-mini",
             messages=messages,
             max_tokens=500,
         )

@@ -31,23 +31,23 @@ class PlayerCog(commands.Cog):
                 response.append("")
 
             # Next Songs (bis zu 10 Einträge)
-            if queue:
-                response.append("**Next Songs:**")
-                for idx, item in enumerate(queue[:10]):
-                    if isinstance(item, dict) and item.get("type") == "spotify_playlist":
-                        # Hole den nächsten Track aus der Spotify-Playlist als Vorschau
-                        res = await self.play_utils._peek_next_spotify_track(item, ctx)
-                        if res:
-                            title, query = res
-                            yt_link = self.play_utils._bridge_to_youtube(query)
-                            response.append(f"{idx+1}. {title} ([Link](<{yt_link}>))")
-                        else:
-                            response.append(f"{idx+1}. Kein weiterer Track in der Playlist")
-                    elif isinstance(item, tuple):
-                        title, link = item
-                        response.append(f"{idx+1}. {title} ([Link](<{link}>))")
-                    else:
-                        response.append(f"{idx+1}. Unbekannter Eintrag")
+                if queue:
+                    response.append("**Next Songs:**")
+                    for q_idx, item in enumerate(queue[:5]):  # Maximal 5 Playlists/Items in der Queue
+                        if isinstance(item, dict) and item.get("type") == "spotify_playlist":
+                            tracks = item.get("tracks", [])
+                            start = item["current_index"]
+                            end = min(start + 10, len(tracks))
+
+                            for t_idx in range(start, end):
+                                artist, title = tracks[t_idx]
+                                query = f"{title} {artist}"
+                                yt_link = self.play_utils._bridge_to_youtube(query)
+                                link_text = f"([Link](<{yt_link}>))" if yt_link else "(Link nicht gefunden)"
+                                response.append(f"{t_idx + 1}. {title} - {artist} {link_text}")
+                        elif isinstance(item, tuple):
+                            title, link = item
+                            response.append(f"{q_idx + 1}. {title} ([Link](<{link}>))")
             if not response:
                 await ctx.send("The queue is empty!")
                 return

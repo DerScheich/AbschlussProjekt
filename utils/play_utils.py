@@ -68,36 +68,57 @@ class PlayUtils:
                 await self._add_spotify_single(ctx, query)
 
             elif "/playlist/" in link.lower():
-                # Spotify-Playlist
-                import urllib.parse
                 parsed = urllib.parse.urlparse(link)
                 path_parts = parsed.path.split('/')
                 playlist_id = path_parts[2] if len(path_parts) >= 3 else None
                 if not playlist_id:
                     await self.safe_send(ctx, "Ungültiger Spotify-Playlist-Link.")
                     return
+
                 loop = asyncio.get_event_loop()
                 try:
-                    # Nur Name & Anzahl
-                    playlist_data = await loop.run_in_executor(
-                        None,
-                        lambda: self.sp_client.playlist(playlist_id, fields="name,tracks(total)")
+                    # Lade ALLE Tracks der Playlist (Paginierung)
+                    all_tracks = []
+                    offset = 0
+                    while True:
+                        batch = await loop.run_in_executor(
+                            None,
+                            lambda: self.sp_client.playlist_tracks(
+                                playlist_id,
+                                fields="items(track(name,artists(name))",
+                                offset=offset,
+                                limit=10  # Maximal 100 Tracks pro Anfrage
+                            )
+                        )
+                        if not batch.get("items"):
+                            break
+                        all_tracks.extend(batch["items"])
+                        offset += len(batch["items"])
+
+                    # Extrahiere Titel und Künstler
+                    tracks = []
+                    for item in all_tracks:
+                        track = item.get("track")
+                        if track:
+                            title = track.get("name", "Unbekannter Titel")
+                            artist = track.get("artists", [{}])[0].get("name", "")
+                            tracks.append((title, artist))
+
+                    # Speichere die Tracks mit YouTube-Links
+                    entry = {
+                        "type": "spotify_playlist",
+                        "playlist_id": playlist_id,
+                        "playlist_name": "Unbekannte Playlist",  # Optional: Namen abrufen
+                        "tracks": tracks,
+                        "current_index": 0
+                    }
+                    self.queues[ctx.guild.id].append(entry)
+                    await self.safe_send(
+                        ctx,
+                        f"Spotify-Playlist mit {len(tracks)} Songs zur Queue hinzugefügt."
                     )
                 except Exception as e:
-                    await self.safe_send(ctx, f"Fehler beim Abrufen der Spotify-Playlist: {e}")
-                    return
-                playlist_name = playlist_data.get("name", "Unbekannte Playlist")
-                total = playlist_data.get("tracks", {}).get("total", 0)
-                # Platzhalter-Dict
-                entry = {
-                    "type": "spotify_playlist",
-                    "playlist_id": playlist_id,
-                    "playlist_name": playlist_name,
-                    "total": total,
-                    "current_index": 0
-                }
-                self.queues[ctx.guild.id].append(entry)
-                await self.safe_send(ctx, f"Spotify-Playlist '{playlist_name}' ({total} Songs) zur Queue hinzugefügt.")
+                    await self.safe_send(ctx, f"Fehler: {e}")
             else:
                 await self.safe_send(ctx, "Bitte einen gültigen Spotify-Track- oder -Playlist-Link angeben.")
             return
