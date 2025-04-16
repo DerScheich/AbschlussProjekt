@@ -1,7 +1,5 @@
 import discord
 from discord.ext import commands
-from openai import OpenAI
-import os
 from utils.chat_utils import ChatUtils
 
 MAX_HISTORY = 10
@@ -13,8 +11,7 @@ class ChatCog(commands.Cog):
         self.mock_users = {}
         self.maggus_mode = False
         self.chat_history = {}
-        self.gpt_client = OpenAI(api_key=os.getenv("OPENAI_API_KEY"))
-        self.chat_utils = ChatUtils(gpt_client=self.gpt_client, maggus_mode=self.maggus_mode)
+        self.chat_utils = ChatUtils(maggus_mode=self.maggus_mode)
 
     @commands.hybrid_command(name="ape", description="Aktiviert den Imitationsmodus für einen Benutzer.")
     async def ape(self, ctx, member: discord.Member, laut: bool = False):
@@ -60,7 +57,6 @@ class ChatCog(commands.Cog):
             return
 
         if message.author.id in self.mimic_users:
-            # Nutzt die ape_transform-Funktion aus ChatUtils
             transformed = self.chat_utils.ape_transform(message.content)
             tts_flag = self.mimic_users[message.author.id]
             await message.channel.send(transformed, tts=tts_flag)
@@ -71,12 +67,32 @@ class ChatCog(commands.Cog):
         else:
             if self.bot.user in message.mentions:
                 channel_id = message.channel.id
+
+                # Check-Kontext hinzufügen
+                check_cog = self.bot.get_cog("CheckCog")
+                check_context = ""
+                if check_cog:
+                    check_data = check_cog.memory.get(channel_id)
+                    if check_data:
+                        # Füge sowohl Prompt als auch Ergebnis hinzu
+                        check_context = (
+                            f"\n[System: Vorheriger Check-Kontext] "
+                            f"Frage: {check_data['prompt']} "
+                            f"Antwort: {check_data['result']}"
+                        )
+
                 if channel_id not in self.chat_history:
                     self.chat_history[channel_id] = []
-                self.chat_history[channel_id].append({"role": "user", "content": message.content})
+
+                # Füge Check-Kontext zur Historie hinzu
+                current_prompt = message.content + check_context
+                self.chat_history[channel_id].append({"role": "user", "content": current_prompt})
+
                 if len(self.chat_history[channel_id]) > MAX_HISTORY:
                     self.chat_history[channel_id] = self.chat_history[channel_id][-MAX_HISTORY:]
-                conversation_prompt = "\n".join(f"{msg['role']}: {msg['content']}" for msg in self.chat_history[channel_id])
+
+                conversation_prompt = "\n".join(
+                    f"{msg['role']}: {msg['content']}" for msg in self.chat_history[channel_id])
                 answer = self.chat_utils.gpt_response(conversation_prompt)
                 await message.channel.send(answer)
                 self.chat_history[channel_id].append({"role": "assistant", "content": answer})

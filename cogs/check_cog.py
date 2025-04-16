@@ -7,6 +7,7 @@ from utils.check_utils import check_image_async
 class CheckCog(commands.Cog):
     def __init__(self, bot: commands.Bot):
         self.bot = bot
+        self.memory = {}
 
     @commands.hybrid_command(name="check", description="Prüft das angehängte Bild anhand des Prompts")
     async def check(self, ctx: commands.Context, file: discord.Attachment, *, prompt: str):
@@ -36,6 +37,13 @@ class CheckCog(commands.Cog):
         except Exception as e:
             return await ctx.send(f"Fehler während der Bildprüfung: {e}")
 
+        # Speichern der Antwort im Gedächtnis
+        self.memory[ctx.channel.id] = {
+            'image': image_bytes,
+            'result': result,
+            'prompt': prompt
+        }
+
         # Erstelle ein Embed für eine übersichtliche Darstellung
         embed = discord.Embed(
             title="Überprüfungsergebnis",
@@ -49,7 +57,6 @@ class CheckCog(commands.Cog):
         embed.set_image(url=f"attachment://{file.filename}")
 
         await ctx.send(embed=embed, file=image_file)
-
 
 async def setup(bot: commands.Bot):
     await bot.add_cog(CheckCog(bot))
