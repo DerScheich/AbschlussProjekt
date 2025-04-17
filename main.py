@@ -19,7 +19,8 @@ initial_extensions = [
     "cogs.graphic_cog",
     "cogs.play_cog",
     "cogs.check_cog",
-    "cogs.birthday_cog"
+    "cogs.birthday_cog",
+    "cogs.help_cog"
 ]
 
 async def load_extensions():

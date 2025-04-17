@@ -45,6 +45,10 @@ Fügt einem Bild oder Video ein Wasserzeichen hinzu.
 – scale: Skalierungsfaktor (Standard: 1.0).
 – transparency: Transparenz zwischen 0.0 und 1.0 (Standard: 1.0).
 
+/sw <input_file>
+Konvertiert Bild oder Video in Schwarz‑Weiß (Graustufen).
+– input_file: Bilddatei (.png, .jpg, .jpeg, .bmp) oder Videodatei (.mp4, .avi, .mov, .mkv).
+
 /check <Bilddatei> <prompt>
 Prüft das angehängte Bild anhand des Prompts mit GPT.
 – Bilddatei: Attachment (.png, .jpg, .jpeg, .bmp).
