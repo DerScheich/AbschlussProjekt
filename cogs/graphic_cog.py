@@ -23,6 +23,32 @@ class WatermarkCog(commands.Cog):
     def __init__(self, bot):
         self.bot = bot
 
+    @commands.hybrid_command(name="sw", description="Konvertiert Medien in Schwarz-Weiß")
+    async def sw(self, ctx: commands.Context, input_file: discord.Attachment):
+        await ctx.defer()
+        try:
+            input_bytes = await input_file.read()
+        except Exception as e:
+            return await ctx.send(f"Fehler beim Herunterladen der Datei: {e}")
+
+        in_name = input_file.filename.lower()
+        out_filename = None
+        try:
+            if in_name.endswith((".png", ".jpg", ".jpeg", ".bmp")):
+                result_bytes = graphic_utils.convert_to_grayscale_image(input_bytes)
+                out_filename = "sw_result.png"
+            elif in_name.endswith((".mp4", ".avi", ".mov", ".mkv")):
+                result_bytes = graphic_utils.convert_to_grayscale_video(input_bytes)
+                out_filename = "sw_result.mp4"
+            else:
+                return await ctx.send("Ungültiges Dateiformat.")
+        except Exception as e:
+            return await ctx.send(f"Verarbeitungsfehler: {e}")
+
+        out_buffer = io.BytesIO(result_bytes)
+        out_buffer.seek(0)
+        await ctx.send(file=discord.File(out_buffer, filename=out_filename))
+
     @commands.hybrid_command(
         name="watermark",
         description="Wasserzeichen auf Bild oder Video anwenden."
