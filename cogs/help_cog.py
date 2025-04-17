@@ -2,10 +2,23 @@ import discord
 from discord.ext import commands
 
 class HelpCog(commands.Cog):
-    """Cog für den /help-Befehl, zeigt eine Übersicht aller verfügbaren Befehle an."""
+    """
+    Cog für den /help-Befehl, zeigt eine Übersicht aller verfügbaren Befehle an.
+
+    :param bot: Die Bot-Instanz, zu der der Cog gehört.
+    :type bot: commands.Bot
+    :return: None
+    """
 
     @commands.hybrid_command(name="help", description="Zeigt eine Übersicht aller Befehle an.")
     async def help(self, ctx: commands.Context):
+        """
+        Zeigt eine Übersicht aller Befehle an.
+
+        :param ctx: Der Kontext, in dem der Befehl aufgerufen wurde.
+        :type ctx: commands.Context
+        :return: None
+        """
         embed = discord.Embed(
             title="**Hilfe Übersicht**",
             color=discord.Color.blue(),
@@ -14,7 +27,7 @@ class HelpCog(commands.Cog):
         embed.set_footer(text="Diese Nachricht ist nur für dich sichtbar.")
 
         embed.add_field(
-            name="**Chat-Modus**", inline=False,
+            name="🟦 **Chat-Modus**", inline=False,
             value=(
                 "**/ape** `<username>` [laut] – Imitationsmodus aktivieren\n"
                 "**/noape** `<username>` – Imitationsmodus deaktivieren\n"
@@ -25,7 +38,7 @@ class HelpCog(commands.Cog):
         )
 
         embed.add_field(
-            name="**Audio-Effekte**", inline=False,
+            name="🟨 **Audio-Effekte**", inline=False,
             value=(
                 "**/slowed** `<input_audio>` [slow_factor] – Audio verlangsamen\n"
                 "**/slowed_reverb** `<input_audio>` `<impulse_audio>` [slow_factor] – Reverb + Slowed\n"
@@ -36,7 +49,7 @@ class HelpCog(commands.Cog):
         )
 
         embed.add_field(
-            name="**Grafik**", inline=False,
+            name="🟧 **Grafik**", inline=False,
             value=(
                 "**/watermark** `<input_file>` `<watermark_file>` [position] [scale] [transparency] – Wasserzeichen hinzufügen\n"
                 "**/sw** `<input_file>` – Bild/Video in Schwarz‑Weiß konvertieren"
@@ -44,16 +57,16 @@ class HelpCog(commands.Cog):
         )
 
         embed.add_field(
-            name="**Bildprüfung**", inline=False,
+            name="🟥 **Bildprüfung**", inline=False,
             value=(
                 "**/check** `<Bilddatei>` `<prompt>` – Bild mit GPT prüfen"
             )
         )
 
         embed.add_field(
-            name="**Geburtstag**", inline=False,
+            name="🟩 **Geburtstag**", inline=False,
             value=(
-                "**/setbirthday** `<username>` `<TT.MM.JJJJ>` <Name> – Geburtstag setzen\n"
+                "**/setbirthday** `<username>` `<TT.MM.JJJJ>` [Name] – Geburtstag setzen\n"
                 "**/viewbirthdays** – Alle Geburtstage anzeigen\n"
                 "**/viewbirthday** `<username>` – Geburtstag eines Users anzeigen\n"
                 "**/editbirthday** `<username>` `<TT.MM.JJJJ>` [Neuer_Name] – Geburtstag bearbeiten\n"
@@ -62,7 +75,7 @@ class HelpCog(commands.Cog):
         )
 
         embed.add_field(
-            name="**Musiksteuerung**", inline=False,
+            name="🟪 **Musiksteuerung**", inline=False,
             value=(
                 "**/play** `<Link>` – Song abspielen\n"
                 "**/queue** – Warteschlange anzeigen\n"
@@ -77,5 +90,12 @@ class HelpCog(commands.Cog):
         await ctx.send(embed=embed, ephemeral=True)
 
 async def setup(bot: commands.Bot):
+    """
+    Lädt den HelpCog in die Bot-Instanz.
+
+    :param bot: Die Bot-Instanz, zu der der Cog hinzugefügt wird.
+    :type bot: commands.Bot
+    :return: None
+    """
     bot.remove_command("help")
     await bot.add_cog(HelpCog(bot))
