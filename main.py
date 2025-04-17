@@ -16,7 +16,7 @@ bot = commands.Bot(command_prefix="/", intents=intents)
 initial_extensions = [
     "cogs.audio_cog",
     "cogs.chat_cog",
-    "cogs.watermark_cog",
+    "cogs.graphic_cog",
     "cogs.play_cog",
     "cogs.check_cog",
     "cogs.birthday_cog"
@@ -34,6 +34,7 @@ async def load_extensions():
 @commands.guild_only()
 @commands.is_owner()
 async def sync(ctx: commands.Context, guilds: commands.Greedy[discord.Object], spec: Optional[Literal["~", "*", "^"]] = None) -> None:
+    """Umbra's Sync - https://about.abstractumbra.dev/discord.py/2023/01/29/sync-command-example.html"""
     if not guilds:
         if spec == "~":
             synced = await ctx.bot.tree.sync(guild=ctx.guild)
@@ -73,4 +74,4 @@ async def main():
     await bot.start(os.getenv("BOT_TOKEN"))
 
 if __name__ == "__main__":
-    asyncio.run(main())  # Starte den Bot asynchron
+    asyncio.run(main())

@@ -1,16 +1,50 @@
-import os
 import cv2
 import numpy as np
 import tempfile
 import subprocess
-
-from PIL import Image
+import os
 from io import BytesIO
+from PIL import Image
 
 
-class WatermarkHandler:
-    """Enthält Funktionen zum Hinzufügen von Wasserzeichen zu Bildern und Videos."""
+class GraphicUtils:
+    # ========== Schwarz-Weiß-Konvertierung ==========
+    def convert_to_grayscale_image(self, image_bytes: bytes) -> bytes:
+        """Konvertiert ein Bild in Graustufen."""
+        img_array = np.frombuffer(image_bytes, np.uint8)
+        img = cv2.imdecode(img_array, cv2.IMREAD_COLOR)
+        gray = cv2.cvtColor(img, cv2.COLOR_BGR2GRAY)
+        success, encoded = cv2.imencode(".png", gray)
+        if not success:
+            raise ValueError("Fehler bei der Bildkonvertierung")
+        return encoded.tobytes()
 
+    def convert_to_grayscale_video(self, video_bytes: bytes) -> bytes:
+        """Konvertiert ein Video in Graustufen mit FFmpeg."""
+        temp_dir = tempfile.gettempdir()
+        temp_input = os.path.join(temp_dir, "sw_input.mp4")
+        final_output = os.path.join(temp_dir, "sw_output.mp4")
+
+        with open(temp_input, "wb") as f:
+            f.write(video_bytes)
+
+        command = [
+            "ffmpeg", "-y",
+            "-i", temp_input,
+            "-vf", "format=gray",  # FFmpeg Graustufen-Filter
+            "-c:v", "libx264", "-preset", "fast",
+            "-c:a", "copy",  # Behalte Original-Audio bei
+            final_output
+        ]
+
+        result = subprocess.run(command, capture_output=True)
+        if result.returncode != 0:
+            raise Exception(f"FFmpeg Fehler: {result.stderr.decode('utf-8')}")
+
+        with open(final_output, "rb") as f:
+            return f.read()
+
+    # ========== Wasserzeichen-Funktionen (Original aus WatermarkHandler) ==========
     def add_watermark_image(self, image: np.ndarray, watermark: np.ndarray, position: str = "center",
                             scale: float = 1.0, transparency: float = 1.0) -> np.ndarray:
         wH, wW = watermark.shape[:2]
@@ -53,25 +87,18 @@ class WatermarkHandler:
         with open(temp_input, "wb") as f:
             f.write(video_bytes)
 
-        # Prüfe, ob das Wasserzeichen ein animiertes GIF ist
+        # Animierte GIF-Wasserzeichen
         if watermark_bytes[:6] in (b'GIF87a', b'GIF89a'):
-            # Wasserzeichen als animiertes GIF speichern
             temp_wm = os.path.join(temp_dir, "watermark_tempwatermark.gif")
             with open(temp_wm, "wb") as f:
                 f.write(watermark_bytes)
-            # Ermittle Videodimensionen mittels OpenCV
             cap = cv2.VideoCapture(temp_input)
-            if not cap.isOpened():
-                raise ValueError("Eingabevideo konnte nicht geöffnet werden.")
             fps = cap.get(cv2.CAP_PROP_FPS)
             width = int(cap.get(cv2.CAP_PROP_FRAME_WIDTH))
             height = int(cap.get(cv2.CAP_PROP_FRAME_HEIGHT))
             cap.release()
-            try:
-                im = Image.open(BytesIO(watermark_bytes))
-                wm_w, wm_h = im.size
-            except Exception as e:
-                raise ValueError("Wasserzeichen-GIF konnte nicht decodiert werden.")
+            im = Image.open(BytesIO(watermark_bytes))
+            wm_w, wm_h = im.size
             scaled_w = int(wm_w * scale)
             scaled_h = int(wm_h * scale)
             positions = {
@@ -81,44 +108,32 @@ class WatermarkHandler:
                 "bottom-right": (width - scaled_w, height - scaled_h),
                 "center": ((width - scaled_w) // 2, (height - scaled_h) // 2)
             }
-            if position not in positions:
-                position = "center"
-            x, y = positions[position]
-            # FFmpeg-Befehl: Overlay des animierten GIFs
+            x, y = positions.get(position, positions["center"])
             command = [
                 "ffmpeg", "-y",
                 "-i", temp_input,
                 "-ignore_loop", "0",
                 "-i", temp_wm,
                 "-filter_complex", f"overlay={x}:{y}:format=auto:shortest=1",
-                "-c:v", "libx264", "-preset", "veryfast", "-crf", "23",
+                "-c:v", "libx264", "-preset", "veryfast",
                 "-c:a", "aac",
-                "-map", "0:v:0",
-                "-map", "0:a:0",
-                "-shortest",
                 final_output
             ]
-            result = subprocess.run(command, stdout=subprocess.PIPE, stderr=subprocess.PIPE)
+            result = subprocess.run(command, capture_output=True)
             if result.returncode != 0:
                 raise Exception("FFmpeg Error: " + result.stderr.decode("utf-8"))
-            with open(final_output, "rb") as f:
-                result_bytes = f.read()
-            return result_bytes
+
+        # Statische Wasserzeichen
         else:
-            # Wasserzeichen ist ein statisches Bild
             wm_array = np.frombuffer(watermark_bytes, np.uint8)
             wm_img = cv2.imdecode(wm_array, cv2.IMREAD_UNCHANGED)
-            if wm_img is None:
-                raise ValueError("Wasserzeichen-Datei konnte nicht als Bild decodiert werden.")
             cap = cv2.VideoCapture(temp_input)
-            if not cap.isOpened():
-                raise ValueError("Eingabevideo konnte nicht geöffnet werden.")
             fourcc = cv2.VideoWriter_fourcc(*"mp4v")
             fps = cap.get(cv2.CAP_PROP_FPS)
             width = int(cap.get(cv2.CAP_PROP_FRAME_WIDTH))
             height = int(cap.get(cv2.CAP_PROP_FRAME_HEIGHT))
             out_vid = cv2.VideoWriter(temp_video, fourcc, fps, (width, height))
-            while True:
+            while cap.isOpened():
                 ret, frame = cap.read()
                 if not ret:
                     break
@@ -130,19 +145,14 @@ class WatermarkHandler:
                 "ffmpeg", "-y",
                 "-i", temp_video,
                 "-i", temp_input,
-                "-c:v", "libx264", "-preset", "veryfast", "-crf", "23",
+                "-c:v", "libx264", "-preset", "veryfast",
                 "-c:a", "aac",
-                "-map", "0:v:0",
-                "-map", "1:a:0",
-                "-shortest",
                 final_output
             ]
-            result = subprocess.run(command, stdout=subprocess.PIPE, stderr=subprocess.PIPE)
-            if result.returncode != 0:
-                raise Exception("FFmpeg Error: " + result.stderr.decode("utf-8"))
-            with open(final_output, "rb") as f:
-                result_bytes = f.read()
-            return result_bytes
+            result = subprocess.run(command, capture_output=True)
+
+        with open(final_output, "rb") as f:
+            return f.read()
 
     def watermark_image_file(self, image_bytes: bytes, watermark_bytes: bytes, position: str,
                              scale: float, transparency: float) -> bytes:
@@ -151,9 +161,9 @@ class WatermarkHandler:
         wm_array = np.frombuffer(watermark_bytes, np.uint8)
         wm_img = cv2.imdecode(wm_array, cv2.IMREAD_UNCHANGED)
         if in_img is None or wm_img is None:
-            raise ValueError("Eingabedatei oder Wasserzeichen nicht decodierbar als Bild.")
+            raise ValueError("Ungültige Eingabedateien")
         result = self.add_watermark_image(in_img, wm_img, position, scale, transparency)
         success, encoded = cv2.imencode(".png", result)
         if not success:
-            raise ValueError("Fehler beim Kodieren des Ergebnis-Bildes.")
+            raise ValueError("Fehler beim Kodieren des Ergebnisbildes")
         return encoded.tobytes()
