@@ -3,19 +3,30 @@ import os
 from pylatexenc.latex2text import LatexNodes2Text
 
 class ChatUtils:
+    """
+    Bietet Hilfsfunktionen für Chatbefehle und GPT-Interaktionen.
+    """
     def __init__(self, maggus_mode: bool = False):
         """
-        :param gpt_client: Eine Instanz Deines GPT-Clients (z.B. OpenAI), kann auch None sein.
-        :param maggus_mode: Gibt an, ob der Markus-Rühl-Stil aktiv ist.
+        Initialisiert den GPT-Client und den Markus-Rühl-Modus.
+
+        :param maggus_mode: Wenn True, Antworten im Markus-Rühl-Stil.
+        :return: None
         """
         self.gpt_client = OpenAI(api_key=os.getenv("OPENAI_API_KEY"))
         self.maggus_mode = maggus_mode
 
     def ape_transform(self, text: str) -> str:
-        """Transformiert einen Text in abwechselnde Groß-/Kleinschreibung."""
+        """
+        Transformiert Text in abwechselnde Groß-/Kleinschreibung.
+
+        :param text: Eingabetext.
+        :return: Transformierter Text mit wechselnder Case.
+        """
         new_text = ""
         use_upper = False
         for char in text:
+            # Wechsel der Groß-/Kleinschreibung
             if char.isalpha():
                 new_text += char.upper() if use_upper else char.lower()
                 use_upper = not use_upper
@@ -24,7 +35,12 @@ class ChatUtils:
         return new_text
 
     def get_instructions(self) -> str:
-        """Gibt die Anweisungen für den GPT-Client basierend auf dem maggus_mode zurück."""
+        """
+        Gibt System-Anweisungen für den GPT-Client zurück.
+
+        :return: Instruction-String.
+        """
+        # Modusabhängige Systemnachricht
         if self.maggus_mode:
             return (
                 "Du bist Markus Rühl, ein renommierter deutscher Profi-Bodybuilder, "
@@ -49,28 +65,36 @@ class ChatUtils:
                 "11) Es gibt keinen Grund Übungen permanent zu ändern – kompletter Schwachsinn!"
                 "12) Es ist halt mal net immer lecker Reis und Fleisch zu essen, aber des bedarfs, wenn man Muskulatur, Bodybuilding, oder auch Fitness- oder ne gute Figur haben will."
             )
-        else:
-            return "Du bist ein lockerer Chat-Helfer."
+        return "Du bist ein lockerer Chat-Helfer."
 
     def beautify_latex_symbols(self, text: str) -> str:
-        """LaTeX-Symbole in Klartext umwandeln (wie in check_utils.py)"""
+        """
+        Wandelt LaTeX-Ausdrücke in Klartext um.
+
+        :param text: Text mit LaTeX.
+        :return: Bereinigter Klartext.
+        """
         converter = LatexNodes2Text()
         return converter.latex_to_text(text)
 
     def gpt_response(self, conversation_prompt: str) -> str:
         """
-        Ruft den GPT-Client auf und gibt die Antwort zurück.
+        Holt eine Antwort vom GPT-Client basierend auf der Historie.
+
+        :param conversation_prompt: Vorgängige Konversation als String.
+        :return: GPT-generierte Antwort.
         """
         instructions = self.get_instructions()
         try:
+            # API-Aufruf
             response = self.gpt_client.responses.create(
                 model="gpt-4o-mini",
                 instructions=instructions,
-                max_output_tokens=150,
-                input=conversation_prompt,
+                max_output_tokens=300,
+                input=conversation_prompt
             )
             answer = response.output_text.strip().strip("`")
-            answer = self.beautify_latex_symbols(answer)
+            # LaTeX-Symbole aufräumen
+            return self.beautify_latex_symbols(answer)
         except Exception as e:
-            answer = f"Fehler beim Abrufen der Chat-Antwort: {e}"
-        return answer
+            return f"Fehler bei Chat-Antwort: {e}"

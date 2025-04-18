@@ -8,110 +8,115 @@ graphic_utils = GraphicUtils()
 
 def parse_decimal(value: str) -> float:
     """
-    Versucht zuerst, mit Punkt zu parsen; bei ValueError wird Komma durch Punkt ersetzt.
-    Wirft commands.BadArgument bei komplett ungültigem Format.
+    Wandelt String in Float um (Komma oder Punkt).
+
+    :param value: Dezimalzahl als String.
+    :return: Float-Wert.
+    :raises: commands.BadArgument bei ungültigem Format.
     """
     try:
         return float(value)
     except ValueError:
         try:
-            return float(value.replace(",", "."))
+            return float(value.replace(',', '.'))
         except ValueError:
-            raise commands.BadArgument(f"Ungültiges Dezimalformat: {value}")
+            raise commands.BadArgument(f'Ungültiges Dezimalformat: {value}')
 
 class WatermarkCog(commands.Cog):
-    def __init__(self, bot):
+    """
+    Cog für Graustufen- und Wasserzeichenbefehle.
+    """
+    def __init__(self, bot: commands.Bot):
+        """
+        Konstruktor für WatermarkCog.
+
+        :param bot: Bot-Instanz.
+        :return: None
+        """
         self.bot = bot
 
-    @commands.hybrid_command(name="sw", description="Konvertiert Medien in Schwarz-Weiß")
+    @commands.hybrid_command(name='sw', description='Konvertiert Medien in Schwarz-Weiß')
     async def sw(self, ctx: commands.Context, input_file: discord.Attachment):
+        """
+        Konvertiert Bild oder Video in Graustufen.
+
+        :param ctx: Command-Kontext.
+        :param input_file: Eingabedatei als Attachment.
+        :return: None
+        """
         await ctx.defer()
+        # Datei herunterladen
         try:
-            input_bytes = await input_file.read()
+            data = await input_file.read()
         except Exception as e:
-            return await ctx.send(f"Fehler beim Herunterladen der Datei: {e}")
+            return await ctx.send(f'Fehler beim Herunterladen: {e}')
+        name = input_file.filename.lower()
+        # Format erkennen
+        if name.endswith(('.png','.jpg','.bmp')):
+            result = graphic_utils.convert_to_grayscale_image(data)
+            out_name = 'sw_result.png'
+        elif name.endswith(('.mp4','.avi')):
+            result = graphic_utils.convert_to_grayscale_video(data)
+            out_name = 'sw_result.mp4'
+        else:
+            return await ctx.send('Ungültiges Dateiformat.')
+        # Datei senden
+        buf = io.BytesIO(result)
+        buf.seek(0)
+        await ctx.send(file=discord.File(buf, filename=out_name))
 
-        in_name = input_file.filename.lower()
-        out_filename = None
-        try:
-            if in_name.endswith((".png", ".jpg", ".jpeg", ".bmp")):
-                result_bytes = graphic_utils.convert_to_grayscale_image(input_bytes)
-                out_filename = "sw_result.png"
-            elif in_name.endswith((".mp4", ".avi", ".mov", ".mkv")):
-                result_bytes = graphic_utils.convert_to_grayscale_video(input_bytes)
-                out_filename = "sw_result.mp4"
-            else:
-                return await ctx.send("Ungültiges Dateiformat.")
-        except Exception as e:
-            return await ctx.send(f"Verarbeitungsfehler: {e}")
+    @commands.hybrid_command(name='watermark', description='Wasserzeichen auf Bild oder Video anwenden')
+    async def watermark(self,
+                        ctx: commands.Context,
+                        input_file: discord.Attachment,
+                        watermark_file: discord.Attachment,
+                        position: Literal['top-left','top-right','bottom-left','bottom-right','center']='center',
+                        scale: str='1.0',
+                        transparency: str='1.0'):
+        """
+        Fügt Wasserzeichen zu Bild/Video hinzu.
 
-        out_buffer = io.BytesIO(result_bytes)
-        out_buffer.seek(0)
-        await ctx.send(file=discord.File(out_buffer, filename=out_filename))
-
-    @commands.hybrid_command(
-        name="watermark",
-        description="Wasserzeichen auf Bild oder Video anwenden."
-    )
-    async def watermark(
-        self,
-        ctx: commands.Context,
-        input_file: discord.Attachment,
-        watermark_file: discord.Attachment,
-        position: Literal["top-left", "top-right", "bottom-left", "bottom-right", "center"] = "center",
-        scale: str = "1.0",
-        transparency: str = "1.0"
-    ):
+        :param ctx: Command-Kontext.
+        :param input_file: Originaldatei.
+        :param watermark_file: Wasserzeichen-Datei.
+        :param position: Position des Wasserzeichens.
+        :param scale: Skalierung als String.
+        :param transparency: Transparenz als String.
+        :return: None
+        """
         await ctx.defer()
-
         # Dateien herunterladen
         try:
-            input_bytes = await input_file.read()
-            wm_bytes = await watermark_file.read()
+            data_in = await input_file.read()
+            data_wm = await watermark_file.read()
         except Exception as e:
-            return await ctx.send(f"Fehler beim Herunterladen der Dateien: {e}")
-
-        # Dezimalwerte parsen
+            return await ctx.send(f'Fehler beim Herunterladen: {e}')
+        # Parameter parsen
         try:
-            scale_val = parse_decimal(scale)
-            transparency_val = parse_decimal(transparency)
+            sc = parse_decimal(scale)
+            tr = parse_decimal(transparency)
         except commands.BadArgument as e:
-            return await ctx.send(f"Fehler: {e}")
+            return await ctx.send(f'Fehler: {e}')
+        name = input_file.filename.lower()
+        # Bild oder Video verarbeiten
+        if name.endswith(('.png','.jpg')):
+            out = graphic_utils.watermark_image_file(data_in, data_wm, position, sc, tr)
+            out_name = 'watermark_result.png'
+        elif name.endswith(('.mp4','.mov')):
+            out = graphic_utils.watermark_video_file(data_in, data_wm, position, sc, tr)
+            out_name = 'watermark_result.mp4'
+        else:
+            return await ctx.send('Ungültiges Dateiformat.')
+        # Ergebnis senden
+        buf2 = io.BytesIO(out)
+        buf2.seek(0)
+        await ctx.send(file=discord.File(buf2, filename=out_name))
 
-        in_name = input_file.filename.lower()
-        out_filename = None
+async def setup(bot: commands.Bot):
+    """
+    Registriert WatermarkCog.
 
-        try:
-            if in_name.endswith((".png", ".jpg", ".jpeg", ".bmp")):
-                result_bytes = graphic_utils.watermark_image_file(
-                    image_bytes=input_bytes,
-                    watermark_bytes=wm_bytes,
-                    position=position,
-                    scale=scale_val,
-                    transparency=transparency_val
-                )
-                out_filename = "watermark_result.png"
-
-            elif in_name.endswith((".mp4", ".avi", ".mov", ".mkv")):
-                result_bytes = graphic_utils.watermark_video_file(
-                    video_bytes=input_bytes,
-                    watermark_bytes=wm_bytes,
-                    position=position,
-                    scale=scale_val,
-                    transparency=transparency_val
-                )
-                out_filename = "watermark_result.mp4"
-
-            else:
-                return await ctx.send("Ungültiges Dateiformat.")
-        except Exception as e:
-            return await ctx.send(f"Fehler bei der Wasserzeichen-Verarbeitung: {e}")
-
-        # Ergebnis zurücksenden
-        out_buffer = io.BytesIO(result_bytes)
-        out_buffer.seek(0)
-        await ctx.send(file=discord.File(out_buffer, filename=out_filename))
-
-
-async def setup(bot):
+    :param bot: Bot-Instanz.
+    :return: None
+    """
     await bot.add_cog(WatermarkCog(bot))
