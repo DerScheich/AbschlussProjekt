@@ -375,12 +375,12 @@ class PlayUtils:
             await self.play(ctx, link=link)
 
     def _bridge_to_youtube(self, query: str) -> str | None:
-        """Sucht zu 'query' das erste YouTube-Ergebnis und gibt die watch-URL zurück."""
+        """
+        Sucht erstes YouTube-Ergebnis zu Query.
 
-
-
-
-
+        :param query: Such-String.
+        :return: Video-Link oder None.
+        """
         try:
             q = urllib.parse.urlencode({'search_query': query})
             url = self.youtube_results_url + q
@@ -394,13 +394,13 @@ class PlayUtils:
             return None
 
     async def play(self, ctx: commands.Context, *, link: str):
-        """Startet das Abspielen eines Links (YouTube)."""
+        """
+        Verbindet und startet Wiedergabe des Links.
 
-
-
-
-
-
+        :param ctx: Command-Kontext.
+        :param link: Video-Link.
+        :return: None
+        """
         try:
 
             if ctx.guild.id not in self.voice_clients or not self.voice_clients[ctx.guild.id].is_connected():
@@ -426,12 +426,12 @@ class PlayUtils:
             print(f"Fehler beim Abspielen: {e}")
 
     async def clear_queue(self, ctx: commands.Context):
+        """
+        Leert die Queue der aktuellen Guild.
 
-
-
-
-
-
+        :param ctx: Command-Kontext.
+        :return: None
+        """
         if ctx.guild.id in self.queues:
             self.queues[ctx.guild.id].clear()
             await self.safe_send(ctx, "Queue cleared!")
@@ -439,36 +439,36 @@ class PlayUtils:
             await self.safe_send(ctx, "There is no queue to clear")
 
     async def pause(self, ctx: commands.Context):
+        """
+        Pausiert die Wiedergabe.
 
-
-
-
-
-
+        :param ctx: Command-Kontext.
+        :return: None
+        """
         try:
             self.voice_clients[ctx.guild.id].pause()
         except Exception as e:
             print(f"Pause-Fehler: {e}")
 
     async def resume(self, ctx: commands.Context):
+        """
+        Setzt die Wiedergabe fort.
 
-
-
-
-
-
+        :param ctx: Command-Kontext.
+        :return: None
+        """
         try:
             self.voice_clients[ctx.guild.id].resume()
         except Exception as e:
             print(f"Resume-Fehler: {e}")
 
     async def stop(self, ctx: commands.Context):
+        """
+        Stoppt Wiedergabe und verlässt den Channel.
 
-
-
-
-
-
+        :param ctx: Command-Kontext.
+        :return: None
+        """
         try:
             vc = self.voice_clients[ctx.guild.id]
             vc.stop()
