@@ -17,6 +17,10 @@ Dieses Projekt verwendet [poetry](https://python-poetry.org/) für das Paketmana
    ```bash
    poetry add <library>
    ```
+4. Bot zum eigenen Server hinzufügen:
+   [Link](https://discord.com/oauth2/authorize?client_id=1357422287451590716&permissions=8&integration_type=0&scope=applications.commands+bot)
+
+   
 
 ## Discord-Bot Befehle
 Mit dem Befehl `/help` erhältst du eine Übersicht aller verfügbaren Befehle:
