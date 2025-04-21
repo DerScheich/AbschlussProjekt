@@ -87,6 +87,31 @@ class BirthdayCog(commands.Cog):
             await ctx.send(f"Geburtstag für {member.display_name} wurde auf {bday.strftime('%d.%m.%Y')} aktualisiert."
                            f"{' Neuer Name: ' + name_display if new_name is not None else ''}")
 
+    @commands.hybrid_command(name="viewbirthday",
+                             description="Zeigt den gesetzten Geburtstag eines bestimmten Members an.")
+    async def view_birthday(self, ctx: commands.Context, member: discord.Member):
+        """Zeigt den gespeicherten Geburtstag eines bestimmten Members an.
+
+        :param ctx: Kontext des Befehls.
+        :param member: Der Discord Member, dessen Geburtstag angezeigt werden soll.
+        @return: Eine Nachricht, die den Namen und den Geburtstag (TT.MM.JJJJ) des Members anzeigt.
+        """
+        guild_id = str(ctx.guild.id)
+        user_id = str(member.id)
+        if guild_id not in self.birthday_utils.birthdays or user_id not in self.birthday_utils.birthdays[guild_id]:
+            await ctx.send(f"Für {member.display_name} wurde kein Geburtstag gesetzt.")
+            return
+        info = self.birthday_utils.birthdays[guild_id][user_id]
+        try:
+            bday = datetime.strptime(info["birthday"], "%Y-%m-%d").date()
+            formatted_bday = bday.strftime("%d.%m.%Y")
+        except Exception:
+            formatted_bday = info["birthday"]
+        stored_name = info.get("name")
+        name_to_show = stored_name if stored_name else member.display_name
+        await ctx.send(f"Gesetzter Geburtstag für {name_to_show}: {formatted_bday}")
+
+
     @commands.hybrid_command(name='viewbirthdays', description='Zeigt alle Geburtstag-Einträge sortiert an.')
     async def view_birthdays(self, ctx: commands.Context):
         """
