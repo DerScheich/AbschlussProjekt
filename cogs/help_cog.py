@@ -53,6 +53,7 @@ class HelpCog(commands.Cog):
             value=(
                 "**/watermark** `<input_file>` `<watermark_file>` [position] [scale] [transparency] – Wasserzeichen hinzufügen\n"
                 "**/sw** `<input_file>` – Bild/Video in Schwarz‑Weiß konvertieren"
+                "**/image** `<prompt>` – Generiert ein Bild mit DALL·E 3"
             )
         )
 
