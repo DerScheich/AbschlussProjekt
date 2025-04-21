@@ -2,7 +2,6 @@ import io
 import numpy as np
 from scipy import signal
 from scipy.io import wavfile
-from pydub import AudioSegment
 import discord
 
 class AudioEffects:

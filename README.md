@@ -1,9 +1,87 @@
-### Installation
+# Abschlussprojekt
 
-This project utilizes [poetry](https://python-poetry.org/) for package management.
+## Beschreibung
+Der Discord‑Bot ist ein Python‑Tool, welches es Benutzern ermöglicht, mit Slash‑Commands Audio‑Effekte wie Verlangsamung, Reverb und Stereo/Mono‑Konvertierung anzuwenden, Bilder und Videos in Graustufen oder mit Wasserzeichen zu bearbeiten sowie KI‑generierte Bilder zu erstellen und GPT‑basierte Bildprüfungen durchzuführen. Zusätzlich bietet der Bot Musiksteuerung (Play, Queue, Skip, Pause, Resume, Stop), automatische Geburtstagsverwaltung mit Geburtstagsgrüßen und GPT‑Chat‑Modi inklusive Imitations‑ und Markus‑Rühl‑Stil. 
+## Installation
+Dieses Projekt verwendet [poetry](https://python-poetry.org/) für das Paketmanagement.
 
-To install the required dependencies, run `poetry install --no-root`.
+1. Dependencies installieren:
+   ```bash
+   poetry install --no-root
+   ```
+2. Anwendung starten:
+   ```bash
+   poetry run python main.py
+   ```
+3. Neue Dependencies hinzufügen:
+   ```bash
+   poetry add <library>
+   ```
 
-To start the application, run `poetry run python main.py`.
+## Discord-Bot Befehle
+Mit dem Befehl `/help` erhältst du eine Übersicht aller verfügbaren Befehle:
 
-To add dependencies, run `poetry add <library>`.
+### ⬜ [Umbra's Sync Command](https://about.abstractumbra.dev/discord.py/2023/01/29/sync-command-example.html)
+- **/sync** `<guilds>` ["~"|"*"|"^"] – Synchronisiert die Slash-Befehle global oder für spezifische Server
+
+### 🟦 Chat-Modus
+- **/ape** `<username>` [laut] – Imitationsmodus aktivieren
+- **/noape** `<username>` – Imitationsmodus deaktivieren
+- **/maggus** – Markus‑Rühl‑Stil aktivieren
+- **/nomaggus** – Markus‑Rühl‑Stil deaktivieren
+- **@mention** `<Nachricht>` – GPT-Chat und Geburtstags‑Intents
+
+### 🟨 Audio-Effekte
+- **/slowed** `<input_audio>` [slow_factor] – Audio verlangsamen
+- **/slowed_reverb** `<input_audio>` `<impulse_audio>` [slow_factor] – Reverb + Slowed
+- **/reverb** `<input_audio>` `<impulse_audio>` – Nur Reverb
+- **/stereo** `<input_audio>` – Mono → Stereo (Haas-Effekt)
+- **/mono** `<input_audio>` – Stereo → Mono
+
+### 🟧 Grafik
+- **/watermark** `<input_file>` `<watermark_file>` [position] [scale] [transparency] – Wasserzeichen hinzufügen
+- **/sw** `<input_file>` – Bild/Video in Schwarz‑Weiß konvertieren
+- **/image** `<prompt>` – Generiert ein Bild mit DALL·E 3
+
+### 🟥 Bildprüfung
+- **/check** `<Bilddatei>` `<prompt>` – Bild mit GPT prüfen
+
+### 🟩 Geburtstag
+- **/setbirthday** `<username>` `<TT.MM.JJJJ>` [Name] – Geburtstag setzen
+- **/viewbirthdays** – Alle Geburtstage anzeigen
+- **/viewbirthday** `<username>` – Geburtstag eines Users anzeigen
+- **/editbirthday** `<username>` `<TT.MM.JJJJ>` [Neuer_Name] – Geburtstag bearbeiten
+- **/deletebirthday** `<username>` – Geburtstag löschen
+
+### 🟪 Musiksteuerung
+- **/play** `<Link>` – Song abspielen
+- **/queue** – Warteschlange anzeigen
+- **/skip** [Anzahl] – Song(s) überspringen
+- **/clear_queue** – Warteschlange leeren
+- **/pause** – Wiedergabe pausieren
+- **/resume** – Wiedergabe fortsetzen
+- **/stop** – Wiedergabe stoppen
+
+
+
+## Ordnerstruktur
+
+```
+cogs/            # Cogs: Discord-Bot-Befehle
+utils/           # Hilfsfunktionen der Befehle
+main.py          # Hauptprogramm
+birthdays.json   # Geburtstagsdatenbank
+README.md        # Dokumentation
+pyproject.toml   # Poetry-Projektkonfiguration
+poetry.lock      # Sperrdatei für Poetry
+.env             # Umgebungsvariablen
+.gitignore       # Ausschlussliste für Git
+```
+
+## Team: Gruppe 7
+- Jonas Kriehn
+- Max Falk Pitulle
+- Jakob Simon Haut
+- Heinrich Teich
+- Lea Katharina von Leesen
+
