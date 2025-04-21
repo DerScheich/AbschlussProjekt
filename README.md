@@ -1,7 +1,7 @@
 # Abschlussprojekt
 
 ## Beschreibung
-Der Discord‑Bot ist ein Python‑Tool, welches es Benutzern ermöglicht, mit Slash‑Commands Audio‑Effekte wie Verlangsamung, Reverb und Stereo/Mono‑Konvertierung anzuwenden, Bilder und Videos in Graustufen oder mit Wasserzeichen zu bearbeiten sowie KI‑generierte Bilder zu erstellen und GPT‑basierte Bildprüfungen durchzuführen. Zusätzlich bietet der Bot Musiksteuerung (Play, Queue, Skip, Pause, Resume, Stop), automatische Geburtstagsverwaltung mit Geburtstagsgrüßen und GPT‑Chat‑Modi inklusive Imitations‑ und Markus‑Rühl‑Stil. 
+Unser Discord‑Bot ist ein Python‑Tool, welches es Benutzern ermöglicht, mit Slash‑Commands Audio‑Effekte wie Verlangsamung, Reverb und Stereo/Mono‑Konvertierung anzuwenden, Bilder und Videos in Graustufen oder mit Wasserzeichen zu bearbeiten sowie KI‑generierte Bilder zu erstellen und GPT‑basierte Bildprüfungen durchzuführen. Zusätzlich bietet der Bot Musiksteuerung (Play, Queue, Skip, Pause, Resume, Stop), automatische Geburtstagsverwaltung mit Geburtstagsgrüßen und GPT‑Chat‑Modi inklusive Imitations‑ und Markus‑Rühl‑Stil. 
 ## Installation
 Dieses Projekt verwendet [poetry](https://python-poetry.org/) für das Paketmanagement.
 
@@ -20,6 +20,7 @@ Dieses Projekt verwendet [poetry](https://python-poetry.org/) für das Paketmana
 4. Bot zum eigenen Server hinzufügen:
    [Link](https://discord.com/oauth2/authorize?client_id=1357422287451590716&permissions=8&integration_type=0&scope=applications.commands+bot)
 
+   Oder alternativ: Dem [Test-Discord](https://discord.gg/4WHc38DAbs) beitreten
    
 
 ## Discord-Bot Befehle
