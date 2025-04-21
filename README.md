@@ -20,6 +20,7 @@ Dieses Projekt verwendet [poetry](https://python-poetry.org/) für das Paketmana
 4. Bot zum eigenen Server hinzufügen:
    [Link](https://discord.com/oauth2/authorize?client_id=1357422287451590716&permissions=8&integration_type=0&scope=applications.commands+bot)
 
+   Oder alternativ: Dem [Test-Discord](https://discord.gg/4WHc38DAbs) beitreten
    
 
 ## Discord-Bot Befehle
