@@ -85,3 +85,6 @@ poetry.lock      # Sperrdatei für Poetry
 - Heinrich Teich
 - Lea Katharina von Leesen
 
+## Issues
+
+- Derzeit kann keine Musik vom Server abgespielt werden, da dieser von yt-dlp als Bot erkannt und daher blockiert wird. Wir sind bemüht an einem zeitnahmen Fix.
