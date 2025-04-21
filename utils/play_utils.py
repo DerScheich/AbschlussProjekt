@@ -24,7 +24,12 @@ class PlayUtils:
         self.youtube_results_url = self.youtube_base_url + 'results?'
         self.youtube_watch_url = self.youtube_base_url + 'watch?v='
 
-        yt_dl_options = {"format": "bestaudio/best", "noplaylist": False}
+        # yt-dlp Optionen inkl. Cookies aus Firefox-Browserprofil
+        yt_dl_options = {
+            "format": "bestaudio/best",
+            "noplaylist": False,
+            "cookies_from_browser": "firefox"
+        }
         self.ytdl = yt_dlp.YoutubeDL(yt_dl_options)
 
         self.ffmpeg_options = {
@@ -156,7 +161,8 @@ class PlayUtils:
                 "format": "bestaudio/best",
                 "extract_flat": True,
                 "skip_download": True,
-                "quiet": True
+                "quiet": True,
+                "cookies_from_browser": "firefox"
             }
             with yt_dlp.YoutubeDL(flat_opts) as ytdl:
                 info = ytdl.extract_info(link, download=False)
