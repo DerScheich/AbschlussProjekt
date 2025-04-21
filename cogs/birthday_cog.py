@@ -111,28 +111,40 @@ class BirthdayCog(commands.Cog):
         name_to_show = stored_name if stored_name else member.display_name
         await ctx.send(f"Gesetzter Geburtstag für {name_to_show}: {formatted_bday}")
 
-
-    @commands.hybrid_command(name='viewbirthdays', description='Zeigt alle Geburtstag-Einträge sortiert an.')
+    @commands.hybrid_command(name="viewbirthdays",
+                             description="Zeigt alle gesetzten Geburtstage mit Username an, von ältestem zum jüngsten.")
     async def view_birthdays(self, ctx: commands.Context):
-        """
-        Zeigt gesetzte Geburtstage an (älteste zuerst).
-
-        :param ctx: Command-Kontext.
-        :return: None
-        """
         guild_id = str(ctx.guild.id)
-        data = self.birthday_utils.birthdays.get(guild_id, {})
-        if not data:
-            return await ctx.send('Keine Geburtstage gesetzt.')
-        lines = []
-        for uid, info in data.items():
+        guild_birthdays = self.birthday_utils.birthdays.get(guild_id, {})
+
+        if not guild_birthdays:
+            await ctx.send("Es wurden noch keine Geburtstage gesetzt.")
+            return
+
+        # Liste aller Geburtstage sammeln mit Datum und Name
+        items = []  # List of (birthday_date, display_name)
+        for user_id, info in guild_birthdays.items():
+            # Name bestimmen
+            member = ctx.guild.get_member(int(user_id))
+            stored_name = info.get("name")
+            name_to_show = stored_name if stored_name else (
+                member.display_name if member else f"Unbekannter User ({user_id})"
+            )
+            # Datum parsen
             try:
-                bd_str = datetime.strptime(info['birthday'], '%Y-%m-%d').strftime('%d.%m.%Y')
-            except:
-                bd_str = info['birthday']
-            name = info.get('name') or ctx.guild.get_member(int(uid)).display_name
-            lines.append(f'{name}: {bd_str}')
-        await ctx.send('**Geburtstage:**\n' + '\n'.join(lines))
+                bday_date = datetime.strptime(info["birthday"], "%Y-%m-%d").date()
+
+            except Exception:
+                continue
+            items.append((bday_date, name_to_show))
+
+        # Sortieren: älteste Geburtstage (kleinste Jahreszahl) zuerst
+        items.sort(key=lambda x: x[0])
+
+        # Ausgabe vorbereiten
+        result_lines = [f"{name}: {bday.strftime('%d.%m.%Y')}" for bday, name in items]
+        message = "\n".join(result_lines)
+        await ctx.send(f"**Gesetzte Geburtstage:**\n{message}")
 
     @commands.hybrid_command(name='deletebirthday', description='Löscht einen Geburtstag.')
     async def delete_birthday(self, ctx: commands.Context, member: discord.Member):

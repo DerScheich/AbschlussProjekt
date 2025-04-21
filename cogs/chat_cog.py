@@ -118,7 +118,16 @@ class ChatCog(commands.Cog):
         """
         # GPT-Intent-Klassifikation
         instructions = (
-            "Erkenne Geburtstags-Intents..."
+            "Erkenne Geburtstags-Intents (nächster, spezifisch, nach Name).\n"
+            "Antworte JSON mit: intent: next_birthday|specific_birthday|after_birthday|none;\n"
+            "name: (bei specific_birthday oder after_birthday); ordinal: (bei next_birthday).\n"
+            "Beispiele:\n"
+            "Input: 'Wer hat als nächstes Geburtstag?' Output: {\"intent\":\"next_birthday\",\"ordinal\":1}\n"
+            "Input: 'Wer hat als übernächstes Geburtstag?' Output: {\"intent\":\"next_birthday\",\"ordinal\":2}\n"
+            "Input: 'Wer hat als letztes Geburtstag im Jahr?' Output: {\"intent\":\"next_birthday\",\"ordinal\":\"last\"}\n"
+            "Input: 'Wann hat Alice Geburtstag?' Output: {\"intent\":\"specific_birthday\",\"name\":\"Alice\"}\n"
+            "Input: 'Wer hat nach Alice Geburtstag?' Output: {\"intent\":\"after_birthday\",\"name\":\"Alice\"}\n"
+            "Input: 'Hi, wie geht's?' Output: {\"intent\":\"none\"}\n"
         )
         resp = self.ai_client.responses.create(
             model="gpt-4o-mini",
@@ -162,15 +171,57 @@ class ChatCog(commands.Cog):
 
             # Spezifischer Geburtstag
             if intent['intent'] == 'specific_birthday':
-                # ... Logik bleibt unverändert
+                if intent['intent'] == 'specific_birthday':
+                    query = intent.get('name', '').lower()
+                    for uid, info in self.birthday_utils.birthdays.get(gid, {}).items():
+                        nm = info.get('name') or (
+                            message.guild.get_member(int(uid)).display_name if message.guild.get_member(
+                                int(uid)) else '')
+                        if nm.lower() == query:
+                            bd = info['birthday']
+                            try:
+                                d = datetime.strptime(bd, '%Y-%m-%d').strftime('%d.%m.%Y')
+                            except:
+                                d = bd
+                            await message.channel.send(f"{nm} hat Geburtstag am {d}. 🎂")
+                            return
+                    await message.channel.send(f"Keinen Geburtstag für '{query}' gefunden.")
                 return
             # Nächster Geburtstag
             if intent['intent'] == 'next_birthday':
-                # ... Logik bleibt unverändert
+                sorted_list = self.get_sorted_upcoming(gid)
+                if not sorted_list:
+                    await message.channel.send("Es sind keine Geburtstage gespeichert.")
+                    return
+                ordv = intent.get('ordinal', 1)
+                if ordv == 'last':
+                    idx = len(sorted_list) - 1
+                else:
+                    idx = max(0, int(ordv) - 1) if isinstance(ordv, int) else 0
+                uid, name, bd_date, age = sorted_list[idx]
+                member = message.guild.get_member(int(uid))
+                disp = name or (member.display_name if member else f"<@{uid}>")
+                dstr = bd_date.strftime('%d.%m.%Y')
+                label = {1: 'Nächster', 2: 'Übernächster'}.get(ordv, 'Letzter' if ordv == 'last' else 'Nächster')
+                await message.channel.send(
+                    f"{label} Geburtstag ist am {dstr} von {disp}. Dann wird er/sie {age} Jahre alt! 🎉")
                 return
             # Geburtstag nach Name
             if intent['intent'] == 'after_birthday':
-                # ... Logik bleibt unverändert
+                ref = intent.get('name', '').lower()
+                sorted_list = self.get_sorted_upcoming(gid)
+                ref_idx = next((i for i, (uid, name, bd, age) in enumerate(sorted_list) if
+                                (name or message.guild.get_member(int(uid)).display_name).lower() == ref), None)
+                if ref_idx is None:
+                    await message.channel.send(f"Keinen Geburtstag für '{ref}' gefunden.")
+                    return
+                next_idx = (ref_idx + 1) % len(sorted_list)
+                uid, name, bd, age = sorted_list[next_idx]
+                member = message.guild.get_member(int(uid))
+                disp = name or (member.display_name if member else f"<@{uid}>")
+                dstr = bd.strftime('%d.%m.%Y')
+                await message.channel.send(
+                    f"Nach {ref.capitalize()} kommt als nächstes {disp} am {dstr}. Dann wird er/sie {age} Jahre alt! 🎈")
                 return
 
             # Fallback: allgemeiner Chat
