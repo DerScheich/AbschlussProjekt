@@ -129,20 +129,22 @@ class ChatCog(commands.Cog):
             "Input: 'Wer hat nach Alice Geburtstag?' Output: {\"intent\":\"after_birthday\",\"name\":\"Alice\"}\n"
             "Input: 'Hi, wie geht's?' Output: {\"intent\":\"none\"}\n"
         )
-        resp = self.ai_client.responses.create(
-            model="gpt-4o-mini",
-            instructions=instructions,
-            max_output_tokens=150,
-            input=text
-        )
         try:
-            data = json.loads(resp.output_text.strip())
-            ordv = data.get('ordinal')
+            response = self.ai_client.chat.completions.create(
+                model="gpt-4o-mini",
+                messages=[
+                    {"role": "system", "content": instructions},
+                    {"role": "user", "content": text},
+                ],
+                max_tokens=150,
+            )
+            data = json.loads(response.choices[0].message.content.strip())
+            ordv = data.get("ordinal")
             if isinstance(ordv, str) and ordv.isdigit():
-                data['ordinal'] = int(ordv)
+                data["ordinal"] = int(ordv)
             return data
-        except:
-            return {'intent': 'none'}
+        except Exception:
+            return {"intent": "none"}
 
     @commands.Cog.listener()
     async def on_message(self, message: discord.Message):

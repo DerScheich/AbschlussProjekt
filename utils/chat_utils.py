@@ -79,22 +79,19 @@ class ChatUtils:
 
     def gpt_response(self, conversation_prompt: str) -> str:
         """
-        Holt eine Antwort vom GPT-Client basierend auf der Historie.
-
-        :param conversation_prompt: Vorgängige Konversation als String.
-        :return: GPT-generierte Antwort.
+        Holt eine Antwort vom GPT‑Client basierend auf der Historie.
         """
         instructions = self.get_instructions()
         try:
-            # API-Aufruf
-            response = self.gpt_client.responses.create(
+            response = self.gpt_client.chat.completions.create(
                 model="gpt-4o-mini",
-                instructions=instructions,
-                max_output_tokens=300,
-                input=conversation_prompt
+                messages=[
+                    {"role": "system", "content": instructions},
+                    {"role": "user", "content": conversation_prompt},
+                ],
+                max_tokens=300,
             )
-            answer = response.output_text.strip().strip("`")
-            # LaTeX-Symbole aufräumen
+            answer = response.choices[0].message.content.strip().strip("`")
             return self.beautify_latex_symbols(answer)
         except Exception as e:
-            return f"Fehler bei Chat-Antwort: {e}"
+            return f"Fehler bei Chat‑Antwort: {e}"
