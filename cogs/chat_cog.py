@@ -165,29 +165,46 @@ class ChatCog(commands.Cog):
 
         # Bot-Mention prüfen
         if self.bot.user in message.mentions:
+            channel_id = message.channel.id
+
+            # 1. Check-Kontext aus CheckCog holen
+            check_cog = self.bot.get_cog("CheckCog")
+            check_context = ""
+            if check_cog:
+                check_data = check_cog.memory.get(channel_id)
+                if check_data:
+                    # Füge sowohl Prompt als auch Ergebnis hinzu
+                    check_context = (
+                        f"\n[System: Vorheriger Check-Kontext] "
+                        f"Frage: {check_data['prompt']} "
+                        f"Antwort: {check_data['result']}"
+                    )
+
+            # 2. Geburtstags-Intent analysieren
             text = message.content
             gid = str(message.guild.id)
             intent = self.classify_birthday_intent(text)
 
-            # Spezifischer Geburtstag
+            # 2a. Spezifischer Geburtstag
             if intent['intent'] == 'specific_birthday':
-                if intent['intent'] == 'specific_birthday':
-                    query = intent.get('name', '').lower()
-                    for uid, info in self.birthday_utils.birthdays.get(gid, {}).items():
-                        nm = info.get('name') or (
-                            message.guild.get_member(int(uid)).display_name if message.guild.get_member(
-                                int(uid)) else '')
-                        if nm.lower() == query:
-                            bd = info['birthday']
-                            try:
-                                d = datetime.strptime(bd, '%Y-%m-%d').strftime('%d.%m.%Y')
-                            except:
-                                d = bd
-                            await message.channel.send(f"{nm} hat Geburtstag am {d}. 🎂")
-                            return
-                    await message.channel.send(f"Keinen Geburtstag für '{query}' gefunden.")
+                query = intent.get('name', '').lower()
+                for uid, info in self.birthday_utils.birthdays.get(gid, {}).items():
+                    nm = info.get('name') or (
+                        message.guild.get_member(int(uid)).display_name
+                        if message.guild.get_member(int(uid)) else ''
+                    )
+                    if nm.lower() == query:
+                        bd = info['birthday']
+                        try:
+                            d = datetime.strptime(bd, '%Y-%m-%d').strftime('%d.%m.%Y')
+                        except:
+                            d = bd
+                        await message.channel.send(f"{nm} hat Geburtstag am {d}. 🎂")
+                        return
+                await message.channel.send(f"Keinen Geburtstag für '{query}' gefunden.")
                 return
-            # Nächster Geburtstag
+
+            # 2b. Nächster Geburtstag
             if intent['intent'] == 'next_birthday':
                 sorted_list = self.get_sorted_upcoming(gid)
                 if not sorted_list:
@@ -204,14 +221,19 @@ class ChatCog(commands.Cog):
                 dstr = bd_date.strftime('%d.%m.%Y')
                 label = {1: 'Nächster', 2: 'Übernächster'}.get(ordv, 'Letzter' if ordv == 'last' else 'Nächster')
                 await message.channel.send(
-                    f"{label} Geburtstag ist am {dstr} von {disp}. Dann wird er/sie {age} Jahre alt! 🎉")
+                    f"{label} Geburtstag ist am {dstr} von {disp}. Dann wird er/sie {age} Jahre alt! 🎉"
+                )
                 return
-            # Geburtstag nach Name
+
+            # 2c. Geburtstag nach Name
             if intent['intent'] == 'after_birthday':
                 ref = intent.get('name', '').lower()
                 sorted_list = self.get_sorted_upcoming(gid)
-                ref_idx = next((i for i, (uid, name, bd, age) in enumerate(sorted_list) if
-                                (name or message.guild.get_member(int(uid)).display_name).lower() == ref), None)
+                ref_idx = next(
+                    (i for i, (uid, name, bd, age) in enumerate(sorted_list)
+                     if (name or message.guild.get_member(int(uid)).display_name).lower() == ref),
+                    None
+                )
                 if ref_idx is None:
                     await message.channel.send(f"Keinen Geburtstag für '{ref}' gefunden.")
                     return
@@ -221,19 +243,31 @@ class ChatCog(commands.Cog):
                 disp = name or (member.display_name if member else f"<@{uid}>")
                 dstr = bd.strftime('%d.%m.%Y')
                 await message.channel.send(
-                    f"Nach {ref.capitalize()} kommt als nächstes {disp} am {dstr}. Dann wird er/sie {age} Jahre alt! 🎈")
+                    f"Nach {ref.capitalize()} kommt als nächstes {disp} am {dstr}. Dann wird er/sie {age} Jahre alt! 🎈"
+                )
                 return
 
-            # Fallback: allgemeiner Chat
-            cid = message.channel.id
-            hist = self.chat_history.setdefault(cid, [])
-            hist.append({'role': 'user', 'content': text})
-            if len(hist) > MAX_HISTORY:
-                hist[:] = hist[-MAX_HISTORY:]
-            prompt = '\n'.join(f"{m['role']}: {m['content']}" for m in hist)
-            resp = self.chat_utils.gpt_response(prompt)
-            await message.channel.send(resp)
-            hist.append({'role': 'assistant', 'content': resp})
+            # 3. Fallback auf GPT-Chat mit Check-Kontext
+            current_prompt = message.content + check_context
+            if channel_id not in self.chat_history:
+                self.chat_history[channel_id] = []
+            self.chat_history[channel_id].append({
+                "role": "user",
+                "content": current_prompt
+            })
+            if len(self.chat_history[channel_id]) > MAX_HISTORY:
+                self.chat_history[channel_id] = self.chat_history[channel_id][-MAX_HISTORY:]
+            conversation_prompt = "\n".join(
+                f"{msg['role']}: {msg['content']}"
+                for msg in self.chat_history[channel_id]
+            )
+            answer = self.chat_utils.gpt_response(conversation_prompt)
+            await message.channel.send(answer)
+            self.chat_history[channel_id].append({
+                "role": "assistant",
+                "content": answer
+            })
+            return
 
 async def setup(bot: commands.Bot):
     """

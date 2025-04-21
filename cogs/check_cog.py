@@ -44,8 +44,12 @@ class CheckCog(commands.Cog):
             result = await check_image_async(img_bytes, prompt)
         except Exception as e:
             return await ctx.send(f'Prüfungsfehler: {e}')
-        # Antwort speichern
-        self.memory[ctx.channel.id] = {'image': img_bytes, 'prompt': prompt, 'result': result}
+            # Speichern der Antwort im Gedächtnis
+        self.memory[ctx.channel.id] = {
+                'image': img_bytes,
+                'result': result,
+                'prompt': prompt
+            }
         # Embed bauen
         embed = discord.Embed(title='Prüfungsergebnis', description=result, color=discord.Color.blue())
         embed.set_footer(text='Ursprüngliches Bild unten.')
