@@ -82,7 +82,7 @@ class GraphicCog(commands.Cog):
         except Exception as e:
             return await ctx.send(f'Fehler beim Herunterladen: {e}')
         name = input_file.filename.lower()
-        if name.endswith(('.png', '.jpg', '.bmp')):
+        if name.endswith(('.png', '.jpg', '.bmp', '.jpeg')):
             result = graphic_utils.convert_to_grayscale_image(data)
             out_name = 'sw_result.png'
         elif name.endswith(('.mp4', '.avi')):
@@ -127,7 +127,7 @@ class GraphicCog(commands.Cog):
         except Exception:
             return await ctx.send('Ungültige Zahlenformate')
         name = input_file.filename.lower()
-        if name.endswith(('.png', '.jpg')):
+        if name.endswith(('.png', '.jpg', '.bmp', '.jpeg')):
             out = graphic_utils.watermark_image_file(data_in, data_wm, position, sc, tr)
             out_name = 'watermark_result.png'
         elif name.endswith(('.mp4', '.mov')):
