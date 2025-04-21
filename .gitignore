@@ -1,2 +1,5 @@
-.idea
+# JetBrains IDE config folder
+.idea/
+
+# Environment variables
 .env
