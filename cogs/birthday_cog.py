@@ -44,6 +44,49 @@ class BirthdayCog(commands.Cog):
         resp = self.birthday_utils.set_birthday(str(ctx.guild.id), str(member.id), birthday, name)
         await ctx.send(resp)
 
+    @commands.hybrid_command(name="editbirthday",
+                             description="Bearbeite den gesetzten Geburtstag eines Members. Format: TT.MM.JJJJ. Optional: <new_name>")
+    async def edit_birthday(self, ctx: commands.Context, member: discord.Member, new_birthday: str,
+                            new_name: str = None):
+            """
+            Bearbeitet den gespeicherten Geburtstag eines Members. Es können sowohl das Geburtsdatum (Format: TT.MM.JJJJ) als auch
+            der gespeicherte Name editiert werden. Wird kein neuer Name angegeben, bleibt der bisherige Name erhalten.
+
+            :param ctx: Kontext des Befehls.
+            :param member: Der Discord Member, dessen Geburtstag editiert werden soll.
+            :param new_birthday: Das neue Geburtsdatum als string im Format TT.MM.JJJJ.
+            :param new_name: Optional, neuer Name als string.
+            @return: Eine Bestätigungsmeldung als string, sofern der Geburtstag (und ggf. der Name) aktualisiert wurde.
+            """
+            if member != ctx.author and not ctx.author.guild_permissions.administrator:
+                await ctx.send("Du darfst nur deinen eigenen Geburtstag bearbeiten!")
+                return
+
+            guild_id = str(ctx.guild.id)
+            user_id = str(member.id)
+            if guild_id not in self.birthday_utils.birthdays or user_id not in self.birthday_utils.birthdays[guild_id]:
+                await ctx.send("Für diesen User wurde noch kein Geburtstag gesetzt!")
+                return
+
+            try:
+                bday = datetime.strptime(new_birthday, "%d.%m.%Y").date()
+            except ValueError:
+                await ctx.send("Ungültiges Datumsformat. Bitte verwende TT.MM.JJJJ.")
+                return
+
+            # Aktualisiere den Geburtstag und setze ggf. "last_wished" zurück.
+            self.birthday_utils.birthdays[guild_id][user_id]["birthday"] = bday.strftime("%Y-%m-%d")
+            self.birthday_utils.birthdays[guild_id][user_id]["last_wished"] = None
+
+            if new_name is not None:
+                # Überschreibe den bisherigen Namen mit dem neuen Namen
+                self.birthday_utils.birthdays[guild_id][user_id]["name"] = new_name
+
+            self.birthday_utils.save_birthdays()
+            name_display = self.birthday_utils.birthdays[guild_id][user_id]["name"]
+            await ctx.send(f"Geburtstag für {member.display_name} wurde auf {bday.strftime('%d.%m.%Y')} aktualisiert."
+                           f"{' Neuer Name: ' + name_display if new_name is not None else ''}")
+
     @commands.hybrid_command(name='viewbirthdays', description='Zeigt alle Geburtstag-Einträge sortiert an.')
     async def view_birthdays(self, ctx: commands.Context):
         """
